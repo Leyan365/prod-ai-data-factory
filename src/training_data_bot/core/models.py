@@ -11,7 +11,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Union
 from uuid import UUID, uuid4
 
-from pydantic import BaseModel, Field, validator, root_validator
+from pydantic import BaseModel, Field, validator # Note: root_validator is typically replaced by @model_validator in V2
 
 
 class BaseEntity(BaseModel):
@@ -21,10 +21,12 @@ class BaseEntity(BaseModel):
     updated_at: Optional[datetime] = None
     metadata: Dict[str, Any] = Field(default_factory=dict)
 
+    # Pydantic V1/V2 Configuration
     class Config:
         use_enum_values = True
         allow_population_by_field_name = True
-        arbitary_types_alllowed = True
+        # FIX: Corrected typo
+        arbitrary_types_allowed = True 
 
 
 # Enums
@@ -78,10 +80,10 @@ class ExportFormat(str, Enum):
 
 # Documents models
 class Document(BaseEntity):
-    """Represents a soruce document"""
+    """Represents a source document"""
     title: str
     content: str
-    source: str # file path, URL ,etc.
+    source: str # file path, URL, etc.
     doc_type: DocumentType
     language: Optional[str] = "en"
     encoding: Optional[str] = "utf-8"
@@ -91,17 +93,19 @@ class Document(BaseEntity):
 
     # processing info
     extraction_method: Optional[str] = None
-    processing_time: Optional[str] = None
+    processing_time: Optional[float] = None # Changed type to float for consistency
 
+    # FIX: Corrected validator signature (v, values) and logic
     @validator("word_count", pre=True, always=True)
-    def calculate_word_count(cls, v , values):
-        if v == 0 and "content" in values:
+    def calculate_word_count(cls, v, values):
+        if "content" in values and values.get("content") is not None and v == 0:
             return len(values["content"].split())
         return v
     
+    # FIX: Corrected validator signature (v, values) and logic
     @validator("char_count", pre=True, always=True)
-    def calculate_char_count(cls, v , values):
-        if v == 0 and "content" in values:
+    def calculate_char_count(cls, v, values):
+        if "content" in values and values.get("content") is not None and v == 0:
             return len(values["content"])
         return v
     
@@ -120,11 +124,12 @@ class TextChunk(BaseEntity):
 
     # Semantic info
     embeddings: Optional[List[float]] = None
-    topics: list[str] = Field(default_factory=list)
+    topics: List[str] = Field(default_factory=list) # Changed hint to List[str]
 
+    # FIX: Corrected validator signature (v, values) and logic
     @validator("token_count", pre=True, always=True)
-    def calculate_token_count(cls, v , values):
-        if v == 0 and "content" in values:
+    def calculate_token_count(cls, v, values):
+        if "content" in values and values.get("content") is not None and v == 0:
             # Rough estimation: 1 token = 4 characters
             return len(values["content"]) // 4
         return v
@@ -132,16 +137,16 @@ class TextChunk(BaseEntity):
 
 # Task Models
 class TaskTemplate(BaseEntity):
-    """Represents a atsk template"""
+    """Represents a task template"""
     name: str
     task_type: TaskType
     description: str
     prompt_template: str
 
     # Task_specific configuration
-    parameters: dict[str, Any] = Field(default_factory=dict)
+    parameters: Dict[str, Any] = Field(default_factory=dict)
     
-    # Quality requiremnts
+    # Quality requirements
     min_output_length: int = 10
     max_output_length: int = 2000
     quality_thresholds: Dict[QualityMetric, float] = Field(default_factory=dict)
@@ -154,7 +159,8 @@ class TaskTemplate(BaseEntity):
 class TaskResult(BaseEntity):
     """Result of a task execution"""
     task_id: UUID
-    template_id = UUID
+    # FIX: Corrected field definition with an assignment
+    template_id: UUID 
     input_chunk_id: UUID
 
     # Output
@@ -162,7 +168,8 @@ class TaskResult(BaseEntity):
     confidence: Optional[float] = None
 
     # Quality scores
-    quality_scores = Dict[QualityMetric, float] = Field(default_factory=dict)
+    # FIX: Corrected field definition with an assignment
+    quality_scores: Dict[QualityMetric, float] = Field(default_factory=dict)
 
     # Processing info
     processing_time: float
@@ -172,7 +179,6 @@ class TaskResult(BaseEntity):
     # Status
     status: ProcessingStatus = ProcessingStatus.PENDING
     error_message: Optional[str] = None
-
 
 
 # Training Data Models
@@ -197,7 +203,6 @@ class TrainingExample(BaseEntity):
     category: Optional[str] = None # For classification tasks
 
 
-
 class Dataset(BaseEntity):
     """A collection of training examples"""
     name: str
@@ -205,7 +210,8 @@ class Dataset(BaseEntity):
     version: str = "1.0.0"
 
     # Content
-    examples: List[TrainingExample] = Field(default_factory=dict)
+    # FIX: Changed default_factory to list
+    examples: List[TrainingExample] = Field(default_factory=list) 
 
     # Statistics
     total_examples: int = 0
@@ -217,14 +223,14 @@ class Dataset(BaseEntity):
     validation_split: float = 0.1
     test_split: float = 0.1
 
-    # Exprt info
+    # Export info
     export_format: ExportFormat = ExportFormat.JSONL
     exported_at: Optional[datetime] = None
     export_path: Optional[Path] = None
 
+    # FIX: Corrected validator signature (v, values) and logic
     @validator("total_examples", pre=True, always=True)
     def calculate_total_examples(cls, v, values):
-        if "examples" in values:
+        if "examples" in values and v == 0:
             return len(values["examples"])
         return v
-        
