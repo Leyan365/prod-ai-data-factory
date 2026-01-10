@@ -4,7 +4,6 @@ import httpx
 from bs4 import BeautifulSoup
 from urllib.parse import urlparse
 
-# NOTE: Assuming BaseLoader provides a 'create_document' method
 from .base import BaseLoader 
 from ..core.models import Document, DocumentType
 from ..core.exceptions import DocumentLoadingError

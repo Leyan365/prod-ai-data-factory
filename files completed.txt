@@ -1,0 +1,6 @@
+src/training_data_bot/__init__.py
+src/training_data_bot/bot.py
+src/training_data_bot/core/models.py
+src/training_data_bot/sources/unified.py
+src/training_data_bot/sources/web.py
+src/training_data_bot/sources/base.py
