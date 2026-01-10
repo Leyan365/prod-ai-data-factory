@@ -1,5 +1,5 @@
 import asyncio
-from typing import Union, Optional, Tuple
+from typing import Union, Optional, Tuple, List
 import httpx
 from bs4 import BeautifulSoup
 from urllib.parse import urlparse
