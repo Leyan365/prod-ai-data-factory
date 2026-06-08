@@ -1,6 +1,6 @@
 # Project Status
 
-This project is being built in tutorial-aligned phases. The current implementation has completed Phases 1-5, with Phase 5 present in the working tree and awaiting its commit.
+This project is being built in tutorial-aligned phases. The current implementation has completed Phases 1-5, with Phase 5 and the documentation refresh committed.
 
 ## Completed Phases
 
@@ -10,7 +10,8 @@ This project is being built in tutorial-aligned phases. The current implementati
 | Phase 2: harden loaders and add tests | Completed | `7ec134b` |
 | Phase 3: add robust preprocessing pipeline | Completed | `9d8f6ba` |
 | Phase 4: add task templates and AI client layer | Completed | `237b967` |
-| Phase 5: quality evaluation layer | Completed in working tree | Pending commit |
+| Phase 5: quality evaluation layer | Completed | `12dde15` |
+| Documentation refresh after Phase 5 | Completed | `ef8f2ff` |
 
 ## Test Status
 
