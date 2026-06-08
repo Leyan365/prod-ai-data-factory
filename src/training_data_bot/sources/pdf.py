@@ -65,14 +65,18 @@ class PDFLoader(BaseLoader):
             try:
                 import fitz  # PyMuPDF
                 import pymupdf4llm  # High-level LLM wrapper
-            except ImportError:
+            except ImportError as exc:
                 raise DocumentLoadError(
-                    "Required packages missing. Install with: pip install pymupdf pymupdf4llm"
-                )
+                    "Optional dependencies missing for PDF loading: pymupdf and pymupdf4llm. "
+                    "Install them with 'pip install pymupdf pymupdf4llm'."
+                ) from exc
 
             # 1. Primary Attempt: Markdown extraction (best for LLMs)
             # This handles tables, headers, and lists automatically.
-            md_content = pymupdf4llm.to_markdown(str(path))
+            try:
+                md_content = pymupdf4llm.to_markdown(str(path))
+            except Exception as exc:
+                raise DocumentLoadError(f"Malformed or unreadable PDF file: {path}") from exc
             
             # 2. Heuristic Check: Is the extraction suspiciously empty? (Likely a scan)
             if len(md_content.strip()) < 50:

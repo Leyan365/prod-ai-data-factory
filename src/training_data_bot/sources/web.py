@@ -154,7 +154,8 @@ class WebLoader(BaseLoader):
                 from bs4 import BeautifulSoup
             except ImportError as exc:
                 raise DocumentLoadingError(
-                    "httpx and beautifulsoup4 packages required for web fallback loading"
+                    "Optional dependencies missing for web fallback loading: httpx and beautifulsoup4. "
+                    "Install them with 'pip install httpx beautifulsoup4'."
                 ) from exc
 
             async with httpx.AsyncClient(follow_redirects=True, timeout=15.0) as client:

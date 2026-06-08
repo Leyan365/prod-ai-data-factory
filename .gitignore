@@ -6,4 +6,6 @@ files completed.txt
 extract_pdf.py
 Production AI Tutorial.pdf
 .tmp/
+.pytest_cache/
+pytest-cache-files-*/
 __pycache__/

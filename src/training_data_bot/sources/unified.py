@@ -1,3 +1,4 @@
+import fnmatch
 from pathlib import Path
 from typing import List, Optional, Union
 from urllib.parse import urlparse
@@ -169,29 +170,38 @@ class UnifiedLoader(BaseLoader):
             patterns: Optional[List[str]] = None
     ) -> List[Path]:
         """
-        Walks a directory and yields paths of supported files.
+        Walk a directory and return supported files in deterministic order.
+
+        Args:
+            directory: Directory to scan.
+            recursive: Whether to include nested files.
+            patterns: Optional inclusion glob patterns matched against both
+                file names and POSIX-style relative paths.
         """
-        sources = []
-        if recursive:
-            # Use rglob for recursive searching
-            path_iterator = directory.rglob("*")
-        else:
-            # Use glob for non-recursive searching
-            path_iterator = directory.glob("*")
+        path_iterator = directory.rglob("*") if recursive else directory.glob("*")
         
         supported_extensions = [f".{ext}" for ext in self.supported_formats]
+        sources = []
         
         for p in path_iterator:
-            if p.is_file() and p.suffix.lower() in supported_extensions:
-                is_excluded_by_pattern = False
-                if patterns:
-                    # Basic pattern matching (e.g., check if filename contains pattern)
-                    for pattern in patterns:
-                        if pattern in p.name:
-                            is_excluded_by_pattern = True
-                            break
-                
-                if not is_excluded_by_pattern:
-                    sources.append(p)
+            if not p.is_file() or p.suffix.lower() not in supported_extensions:
+                continue
+
+            if patterns and not self._matches_any_pattern(directory, p, patterns):
+                continue
+
+            sources.append(p)
         
-        return sources
+        return sorted(
+            sources,
+            key=lambda path: path.relative_to(directory).as_posix().lower(),
+        )
+
+    def _matches_any_pattern(self, directory: Path, path: Path, patterns: List[str]) -> bool:
+        """Return True when path matches any inclusion glob pattern."""
+
+        relative_path = path.relative_to(directory).as_posix()
+        return any(
+            fnmatch.fnmatch(path.name, pattern) or fnmatch.fnmatch(relative_path, pattern)
+            for pattern in patterns
+        )

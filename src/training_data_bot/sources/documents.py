@@ -202,7 +202,10 @@ class DocumentLoader(BaseLoader):
                 doc = DocxDocument(p)
                 text_parts = [paragraph.text for paragraph in doc.paragraphs if paragraph.text.strip()]
                 return "\n".join(text_parts)
-            except ImportError:
-                raise DocumentLoadError("python-docx package required for DOCX files. Please install it with 'pip install python-docx'")
+            except ImportError as exc:
+                raise DocumentLoadError(
+                    "Optional dependency missing for DOCX loading: python-docx. "
+                    "Install it with 'pip install python-docx'."
+                ) from exc
         
         return await asyncio.to_thread(_parse_docx_sync, path)
