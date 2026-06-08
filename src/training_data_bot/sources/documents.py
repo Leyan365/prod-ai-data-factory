@@ -1,10 +1,8 @@
 import json
 import csv 
 import asyncio
-import docx 
-import bs4
 from pathlib import Path
-from typing import Union, Dict, Any, List, cast 
+from typing import Union, List
 
 
 from .base import BaseLoader 
@@ -117,7 +115,10 @@ class DocumentLoader(BaseLoader):
     # It must be wrapped in asyncio.to_thread for production use.
     def _extract_text_from_html(self, path: Path, encoding: str) -> str:
         """Helper function for synchronous HTML parsing."""
-        from bs4 import BeautifulSoup
+        try:
+            from bs4 import BeautifulSoup
+        except ImportError as exc:
+            raise DocumentLoadError("beautifulsoup4 package required for HTML files") from exc
         
         with open(path, 'r', encoding=encoding) as f:
             soup = BeautifulSoup(f.read(), 'html.parser')
@@ -197,9 +198,9 @@ class DocumentLoader(BaseLoader):
         """
         def _parse_docx_sync(p: Path) -> str:
             try:
-                from docx import Document
-                doc = Document(p)
-                text_parts = [p.text for p in doc.paragraphs if p.text.strip()]
+                from docx import Document as DocxDocument
+                doc = DocxDocument(p)
+                text_parts = [paragraph.text for paragraph in doc.paragraphs if paragraph.text.strip()]
                 return "\n".join(text_parts)
             except ImportError:
                 raise DocumentLoadError("python-docx package required for DOCX files. Please install it with 'pip install python-docx'")

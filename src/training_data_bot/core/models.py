@@ -11,7 +11,95 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Union
 from uuid import UUID, uuid4
 
-from pydantic import BaseModel, Field, validator # Note: root_validator is typically replaced by @model_validator in V2
+try:
+    from pydantic import BaseModel, Field, validator # Note: root_validator is typically replaced by @model_validator in V2
+    try:
+        from pydantic import ConfigDict
+    except ImportError:
+        ConfigDict = None
+except ImportError:
+    from enum import Enum as _Enum
+    import json as _json
+
+    class _FieldInfo:
+        def __init__(self, default: Any = None, default_factory=None):
+            self.default = default
+            self.default_factory = default_factory
+
+        def get_default(self) -> Any:
+            if self.default_factory is not None:
+                return self.default_factory()
+            return self.default
+
+    def Field(default: Any = None, default_factory=None, **kwargs):
+        return _FieldInfo(default=default, default_factory=default_factory)
+
+    def validator(*args, **kwargs):
+        def decorate(fn):
+            return fn
+        return decorate
+
+    class BaseModel:
+        """Small fallback used when pydantic is not installed."""
+
+        def __init__(self, **data: Any):
+            fields: Dict[str, Any] = {}
+            for cls in reversed(self.__class__.mro()):
+                fields.update(getattr(cls, "__annotations__", {}))
+
+            for name in fields:
+                if name in data:
+                    value = data.pop(name)
+                elif hasattr(self.__class__, name):
+                    default = getattr(self.__class__, name)
+                    value = default.get_default() if isinstance(default, _FieldInfo) else default
+                else:
+                    value = None
+                setattr(self, name, value)
+
+            for name, value in data.items():
+                setattr(self, name, value)
+
+            self._apply_fallback_calculations()
+
+        def _apply_fallback_calculations(self) -> None:
+            if self.__class__.__name__ == "Document" and getattr(self, "content", None):
+                if getattr(self, "word_count", 0) == 0:
+                    self.word_count = len(self.content.split())
+                if getattr(self, "char_count", 0) == 0:
+                    self.char_count = len(self.content)
+            elif self.__class__.__name__ == "TextChunk" and getattr(self, "content", None):
+                if getattr(self, "token_count", 0) == 0:
+                    self.token_count = len(self.content) // 4
+            elif self.__class__.__name__ == "Dataset":
+                if getattr(self, "total_examples", 0) == 0 and getattr(self, "examples", None) is not None:
+                    self.total_examples = len(self.examples)
+
+        def dict(self) -> Dict[str, Any]:
+            return {
+                key: value
+                for key, value in self.__dict__.items()
+                if not key.startswith("_")
+            }
+
+        def json(self) -> str:
+            return _json.dumps(self._jsonable(self.dict()))
+
+        @classmethod
+        def _jsonable(cls, value: Any) -> Any:
+            if isinstance(value, BaseModel):
+                return cls._jsonable(value.dict())
+            if isinstance(value, dict):
+                return {cls._jsonable(k): cls._jsonable(v) for k, v in value.items()}
+            if isinstance(value, list):
+                return [cls._jsonable(item) for item in value]
+            if isinstance(value, (UUID, datetime, Path)):
+                return str(value)
+            if isinstance(value, _Enum):
+                return value.value
+            return value
+
+    ConfigDict = None
 
 
 class BaseEntity(BaseModel):
@@ -21,12 +109,17 @@ class BaseEntity(BaseModel):
     updated_at: Optional[datetime] = None
     metadata: Dict[str, Any] = Field(default_factory=dict)
 
-    # Pydantic V1/V2 Configuration
-    class Config:
-        use_enum_values = True
-        allow_population_by_field_name = True
-        # FIX: Corrected typo
-        arbitrary_types_allowed = True 
+    if ConfigDict is not None:
+        model_config = ConfigDict(
+            use_enum_values=True,
+            populate_by_name=True,
+            arbitrary_types_allowed=True,
+        )
+    else:
+        class Config:
+            use_enum_values = True
+            allow_population_by_field_name = True
+            arbitrary_types_allowed = True
 
 
 # Enums
@@ -234,3 +327,33 @@ class Dataset(BaseEntity):
         if "examples" in values and v == 0:
             return len(values["examples"])
         return v
+
+
+# Quality Models
+class QualityReport(BaseEntity):
+    """Quality assessment result for an example or dataset."""
+
+    target_id: UUID
+    overall_score: float = 1.0
+    passed: bool = True
+    metric_scores: Dict[QualityMetric, float] = Field(default_factory=dict)
+    issues: List[str] = Field(default_factory=list)
+    warnings: List[str] = Field(default_factory=list)
+    reasons: List[str] = Field(default_factory=list)
+
+
+# Operation Models
+class ProcessingJob(BaseEntity):
+    """Tracks progress for a processing operation."""
+
+    name: str
+    job_type: str
+    status: ProcessingStatus = ProcessingStatus.PENDING
+    total_items: int = 0
+    processed_items: int = 0
+    failed_items: int = 0
+    started_at: datetime = Field(default_factory=datetime.utcnow)
+    estimated_completion: Optional[datetime] = None
+    input_data: Dict[str, Any] = Field(default_factory=dict)
+    output_data: Dict[str, Any] = Field(default_factory=dict)
+    error_message: Optional[str] = None

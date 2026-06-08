@@ -1,7 +1,5 @@
 import asyncio
 from typing import Union, Optional, Tuple, List
-import httpx
-from bs4 import BeautifulSoup
 from urllib.parse import urlparse
 
 from .base import BaseLoader 
@@ -38,7 +36,7 @@ class WebLoader(BaseLoader):
         self.logger = get_logger("web_loader") 
 
         # State and configuration
-        self.supported_format = [DocumentType.URL]
+        self.supported_formats = [DocumentType.URL]
         self.use_decodo = use_decodo
         # FIX: Corrected type hint syntax
         self.decodo_client: Optional[DecodoClient] = None 
@@ -151,6 +149,14 @@ class WebLoader(BaseLoader):
         """
         self.logger.debug(f"Using fallback basic scraping for {url}")
         try:
+            try:
+                import httpx
+                from bs4 import BeautifulSoup
+            except ImportError as exc:
+                raise DocumentLoadingError(
+                    "httpx and beautifulsoup4 packages required for web fallback loading"
+                ) from exc
+
             async with httpx.AsyncClient(follow_redirects=True, timeout=15.0) as client:
                 response = await client.get(url, headers={'User-Agent': 'TrainingDataBot/1.0'})
                 response.raise_for_status() # Raise exception for 4xx/5xx status codes
@@ -168,9 +174,12 @@ class WebLoader(BaseLoader):
                 
             return text, "webLoader.Fallback.HTTPX_BS4"
             
-        except httpx.HTTPStatusError as e:
-            raise DocumentLoadingError(f"HTTP error {e.response.status_code} during fallback scrape: {url}") from e
         except Exception as e:
+            if isinstance(e, DocumentLoadingError):
+                raise
+            if e.__class__.__name__ == "HTTPStatusError":
+                status_code = getattr(getattr(e, "response", None), "status_code", "unknown")
+                raise DocumentLoadingError(f"HTTP error {status_code} during fallback scrape: {url}") from e
             raise DocumentLoadingError(f"Basic fallback scraping failed for {url}: {e}") from e
 
     def _extract_title(self, url: str, content: str) -> str:
@@ -179,6 +188,8 @@ class WebLoader(BaseLoader):
         # 1. Try to extract title from content (assuming it's HTML when scraped, 
         # or if Decodo returned text, it might be the first line)
         try:
+            from bs4 import BeautifulSoup
+
             soup = BeautifulSoup(content, 'html.parser')
             title_tag = soup.find('title')
             if title_tag and title_tag.string and title_tag.string.strip():

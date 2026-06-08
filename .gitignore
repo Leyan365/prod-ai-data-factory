@@ -1,3 +1,9 @@
 .vscode
 .env
 .txt
+pdf_text.txt
+files completed.txt
+extract_pdf.py
+Production AI Tutorial.pdf
+.tmp/
+__pycache__/

@@ -177,7 +177,7 @@ class TrainingDataBot:
                                     source_document_id = doc.id,
                                     source_chunk_id = chunk.id, # <- Added missing comma
                                     template_id = result.template_id, # <- Added missing comma
-                                    quality_score = result.quality_scores, # <- Added missing comma
+                                    quality_scores = result.quality_scores, # <- Added missing comma
                                 )
 
                                 # Apply quality filtering if enabled
@@ -316,7 +316,7 @@ class TrainingDataBot:
             "documents": {
                 "total": len(self.documents),
                 # Note: The original key was "doc_types", corrected to what it should be:
-                "by_type": _count_by_type(self.documents.values(), "document_type"), 
+                "by_type": _count_by_type(self.documents.values(), "doc_type"), 
                 "total_size": sum(doc.size for doc in self.documents.values()),
             },
             "datasets": {
