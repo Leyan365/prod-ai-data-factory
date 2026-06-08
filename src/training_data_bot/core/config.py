@@ -24,6 +24,18 @@ class Settings:
     gemini_model: str = "gemini-1.5-flash"
     ai_timeout: int = 60
     ai_max_retries: int = 3
+    quality_min_input_length: int = 3
+    quality_min_output_length: int = 10
+    quality_min_overall_score: float = 0.6
+    quality_min_metric_score: float = 0.5
+    quality_min_relevance_overlap: float = 0.08
+    quality_duplicate_threshold: float = 0.9
+    quality_blocked_terms: tuple[str, ...] = (
+        "hate",
+        "kill",
+        "violence",
+        "slur",
+    )
     output_dir: Path = Path("output")
 
 
