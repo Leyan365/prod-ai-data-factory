@@ -20,6 +20,10 @@ class Settings:
     default_chunk_overlap: int = 100
     default_min_chunk_chars: int = 1
     preserve_paragraphs: bool = True
+    default_ai_provider: str = "mock"
+    gemini_model: str = "gemini-1.5-flash"
+    ai_timeout: int = 60
+    ai_max_retries: int = 3
     output_dir: Path = Path("output")
 
 

@@ -30,6 +30,22 @@ class PreprocessingError(TrainingDataBotError):
     """Raised when document preprocessing fails."""
 
 
+class AIClientError(TrainingDataBotError):
+    """Raised when an AI provider call fails."""
+
+
+class AIProviderConfigurationError(AIClientError):
+    """Raised when an AI provider is not configured correctly."""
+
+
+class TaskExecutionError(TrainingDataBotError):
+    """Raised when task template execution fails."""
+
+
+class TemplateRenderError(TaskExecutionError):
+    """Raised when a prompt template cannot be rendered."""
+
+
 class DocumentLoadError(TrainingDataBotError):
     """Raised when a document source cannot be loaded."""
 

@@ -235,6 +235,7 @@ class TaskTemplate(BaseEntity):
     task_type: TaskType
     description: str
     prompt_template: str
+    output_format: Optional[str] = None
 
     # Task_specific configuration
     parameters: Dict[str, Any] = Field(default_factory=dict)
@@ -272,6 +273,7 @@ class TaskResult(BaseEntity):
     # Status
     status: ProcessingStatus = ProcessingStatus.PENDING
     error_message: Optional[str] = None
+    raw_output: Optional[Dict[str, Any]] = None
 
 
 # Training Data Models
@@ -357,3 +359,4 @@ class ProcessingJob(BaseEntity):
     input_data: Dict[str, Any] = Field(default_factory=dict)
     output_data: Dict[str, Any] = Field(default_factory=dict)
     error_message: Optional[str] = None
+    raw_output: Optional[Dict[str, Any]] = None

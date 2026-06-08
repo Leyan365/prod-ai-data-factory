@@ -2,10 +2,14 @@
 
 from .config import settings
 from .exceptions import (
+    AIClientError,
+    AIProviderConfigurationError,
     ConfigurationError,
     DocumentLoadError,
     DocumentLoadingError,
     PreprocessingError,
+    TaskExecutionError,
+    TemplateRenderError,
     TrainingDataBotError,
     UnsupportedFormatError,
 )
@@ -27,6 +31,8 @@ from .models import (
 )
 
 __all__ = [
+    "AIClientError",
+    "AIProviderConfigurationError",
     "ConfigurationError",
     "Dataset",
     "Document",
@@ -43,6 +49,8 @@ __all__ = [
     "TaskResult",
     "TaskTemplate",
     "TaskType",
+    "TaskExecutionError",
+    "TemplateRenderError",
     "TextChunk",
     "TrainingDataBotError",
     "TrainingExample",
