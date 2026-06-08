@@ -18,6 +18,8 @@ class Settings:
     default_encoding: str = "utf-8"
     default_chunk_size: int = 1000
     default_chunk_overlap: int = 100
+    default_min_chunk_chars: int = 1
+    preserve_paragraphs: bool = True
     output_dir: Path = Path("output")
 
 

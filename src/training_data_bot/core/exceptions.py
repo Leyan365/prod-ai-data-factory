@@ -26,6 +26,10 @@ class ConfigurationError(TrainingDataBotError):
     """Raised when runtime configuration or component setup fails."""
 
 
+class PreprocessingError(TrainingDataBotError):
+    """Raised when document preprocessing fails."""
+
+
 class DocumentLoadError(TrainingDataBotError):
     """Raised when a document source cannot be loaded."""
 

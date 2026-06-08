@@ -5,6 +5,7 @@ from .exceptions import (
     ConfigurationError,
     DocumentLoadError,
     DocumentLoadingError,
+    PreprocessingError,
     TrainingDataBotError,
     UnsupportedFormatError,
 )
@@ -34,6 +35,7 @@ __all__ = [
     "DocumentType",
     "ExportFormat",
     "LogContext",
+    "PreprocessingError",
     "ProcessingJob",
     "ProcessingStatus",
     "QualityMetric",
