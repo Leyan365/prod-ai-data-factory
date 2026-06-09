@@ -30,6 +30,10 @@ class PreprocessingError(TrainingDataBotError):
     """Raised when document preprocessing fails."""
 
 
+class ExportError(TrainingDataBotError):
+    """Raised when dataset export configuration or writing fails."""
+
+
 class AIClientError(TrainingDataBotError):
     """Raised when an AI provider call fails."""
 
