@@ -1,6 +1,6 @@
 # Architecture
 
-The Training Data Bot package is organized as a layered local pipeline. Each layer has a small public surface and passes typed models to the next layer.
+The Training Data Bot package is organized as a layered local pipeline. Each layer has a small public surface and passes typed models to the next layer. The current architecture is offline-first by default.
 
 ## Loader Layer
 
@@ -57,7 +57,7 @@ Responsibilities:
 - Support an opt-in `GeminiProvider` that reads `GEMINI_API_KEY` from the environment only.
 - Return structured `TaskResult` records.
 
-The current task layer does not perform quality scoring, dataset export, storage persistence, embeddings, or advanced orchestration.
+This layer does not perform quality scoring, dataset export, storage persistence, embeddings, or advanced orchestration.
 
 ## Quality Evaluation Layer
 
@@ -77,21 +77,54 @@ Responsibilities:
 
 This layer is offline and does not call external APIs.
 
-## Export And Storage Placeholders
+## Export Layer
 
 Primary module: `src/training_data_bot/storage.py`
 
-Current responsibilities:
+Primary class: `DatasetExporter`
 
-- Provide importable `DatasetExporter` and `DatabaseManager` classes.
-- Support basic dataset export behavior for the tutorial baseline.
-- Keep `TrainingDataBot` initialization and cleanup paths intact.
+Responsibilities:
 
-Known gaps:
+- Export datasets as deterministic JSONL or CSV.
+- Validate export format and output suffixes.
+- Reject unsupported placeholder formats with clear `ExportError` messages.
+- Optionally create deterministic train/validation/test split packages.
+- Preserve training example metadata and quality scores in exported records.
+- Update dataset export metadata such as `export_path`, `export_format`, and `exported_at`.
 
-- Full export format support is not implemented.
-- Database persistence is not implemented.
-- Dataset lifecycle management is still minimal.
+Implemented formats:
+
+- JSONL
+- CSV
+
+Placeholder enum values:
+
+- Parquet
+- Hugging Face
+- OpenAI
+
+## Local Storage Layer
+
+Primary module: `src/training_data_bot/storage.py`
+
+Primary class: `DatabaseManager`
+
+Responsibilities:
+
+- Persist datasets and processing jobs as local JSON files.
+- Load one persisted dataset or job by ID.
+- List persisted datasets and jobs in deterministic filename order.
+- Serialize UUID, enum, datetime, and `Path` values into JSON-safe forms.
+- Raise `StorageError` for missing, malformed, invalid, or unwritable records.
+
+Default storage layout:
+
+```text
+output/storage/datasets/{dataset_id}.json
+output/storage/jobs/{job_id}.json
+```
+
+Storage is local, offline-first, dependency-free, and intended for durable tutorial workflows. It is not a production database, concurrent writer system, migration framework, cloud object store, or query engine.
 
 ## Main Data Flow
 
@@ -110,8 +143,18 @@ flowchart TD
     K --> L["QualityEvaluator"]
     L --> M["QualityReport"]
     K --> N["Dataset"]
-    N --> O["DatasetExporter placeholder"]
-    N --> P["DatabaseManager placeholder"]
+    N --> O["DatasetExporter"]
+    N --> P["DatabaseManager"]
+    Q["ProcessingJob"] --> P
 ```
 
-`TrainingDataBot` orchestrates these layers through `load_documents()`, `process_documents()`, `evaluate_dataset()`, `export_dataset()`, `quick_process()`, and `cleanup()`.
+`TrainingDataBot` orchestrates these layers through `load_documents()`, `process_documents()`, `evaluate_dataset()`, `export_dataset()`, `load_dataset()`, `list_persisted_datasets()`, `load_job()`, `list_persisted_jobs()`, `quick_process()`, and `cleanup()`.
+
+## Remaining Architecture Gaps
+
+- Decodo integration remains stubbed/fallback-only and is not production scraping behavior.
+- `TextChunk.embeddings` and `TextChunk.topics` fields exist, but no embeddings or topic extraction pipeline is implemented.
+- Parquet, Hugging Face, and OpenAI export enum values are placeholders.
+- Dataset statistics fields are present but not fully populated by a dedicated lifecycle layer.
+- No CLI, package metadata, or deployment surface is implemented.
+- No schema migration layer exists for persisted JSON records.

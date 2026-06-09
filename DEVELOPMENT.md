@@ -10,6 +10,7 @@ This document describes the current workflow for extending the tutorial implemen
 4. Preserve `TrainingDataBot` compatibility.
 5. Prefer deterministic, offline behavior for tests.
 6. Do not hardcode secrets or credentials.
+7. Keep default AI behavior offline/mock unless a task explicitly changes provider plumbing.
 
 Useful status command:
 
@@ -23,6 +24,12 @@ Run the full regression suite:
 
 ```powershell
 C:\Users\USER\anaconda3\python.exe -m pytest -q
+```
+
+Current expected result after Phase 7:
+
+```text
+70 passed, 3 skipped
 ```
 
 Run the smoke check:
@@ -39,6 +46,12 @@ C:\Users\USER\anaconda3\python.exe -c "import ast, pathlib; paths=list(pathlib.P
 
 Use `ast.parse` instead of `compileall` when `__pycache__` permissions prevent bytecode writes.
 
+Current expected syntax result:
+
+```text
+parsed 28 python files
+```
+
 ## Commit Strategy
 
 - Commit one phase at a time.
@@ -49,6 +62,59 @@ Use `ast.parse` instead of `compileall` when `__pycache__` permissions prevent b
 ```text
 Phase 5: add quality evaluation layer
 ```
+
+Recent phase commits:
+
+- Phase 6 export hardening: `a9cfaff`
+- Phase 7 durable local storage: `6e3619e`
+- Cleanup after Phase 7: `8cbc110`
+
+## Export And Storage Development
+
+`DatasetExporter` and `DatabaseManager` live in `src/training_data_bot/storage.py`.
+
+Current export behavior:
+
+- JSONL and CSV are the supported first-class formats.
+- Split exports write deterministic `train`, `validation`, and `test` files.
+- Unsupported placeholder formats should raise clear `ExportError` messages.
+- Export should remain offline and deterministic.
+
+Current local storage behavior:
+
+- Datasets are stored under `output/storage/datasets/{dataset_id}.json`.
+- Processing jobs are stored under `output/storage/jobs/{job_id}.json`.
+- Tests should use a workspace-local temporary `storage_dir` to avoid creating default `output/storage` artifacts.
+- Storage should remain local JSON only unless a later production-hardening phase explicitly changes scope.
+
+Placeholder export enum values:
+
+- `parquet`
+- `huggingface`
+- `openai`
+
+These are intentionally not implemented yet.
+
+## Recommended Next Phase
+
+Recommended Phase 9: Pydantic v2 and core model cleanup.
+
+Suggested scope:
+
+1. Replace Pydantic v1-style `@validator` usage with v2-compatible validators.
+2. Replace `datetime.utcnow` defaults with timezone-aware UTC defaults.
+3. Review model serialization paths used by JSONL export, CSV export, and local storage.
+4. Decide whether the fallback local `BaseModel` should be retained, simplified, or removed.
+5. Preserve current model field names and `TrainingDataBot` workflows.
+
+Out of scope for the model cleanup phase:
+
+- Vector databases
+- Embeddings pipeline
+- Production cloud storage
+- Decodo production integration
+- New AI providers
+- Export format expansion
 
 ## Add A New Task Template
 

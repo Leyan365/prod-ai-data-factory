@@ -1,21 +1,22 @@
 # Production-Grade Data Factory
 
-Training Data Bot is a tutorial-driven Python package for turning source documents into training data examples. The current implementation covers the local, offline baseline through Phase 5: package repair, loader hardening, preprocessing, task template execution, mock/Gemini AI provider plumbing, and deterministic quality evaluation.
+Training Data Bot is a tutorial-driven Python package for turning source documents into training data examples. The current implementation covers the local, offline baseline through Phase 8: package repair, loader hardening, preprocessing, task template execution, mock/Gemini AI provider plumbing, deterministic quality evaluation, hardened dataset export, durable local storage, and refreshed project documentation.
 
 ## Current Architecture
 
-The package is organized around a simple data flow:
+The package is organized around a local data flow:
 
 1. `UnifiedLoader` loads files, directories, or URLs into `Document` models.
 2. `TextPreprocessor` normalizes document text and creates stable overlapping `TextChunk` records.
 3. `TaskManager` renders task templates and calls `AIClient`.
 4. `AIClient` uses the offline `MockAIProvider` by default, or an opt-in Gemini provider.
 5. `QualityEvaluator` scores generated examples with deterministic rule-based checks.
-6. `DatasetExporter` and `DatabaseManager` currently provide lightweight placeholder behavior.
+6. `DatasetExporter` writes deterministic JSONL/CSV exports and optional train/validation/test split packages.
+7. `DatabaseManager` persists datasets and processing jobs as local JSON under `output/storage`.
 
 The main public entry point is `TrainingDataBot` from `training_data_bot`.
 
-## Features Through Phase 5
+## Features Through Phase 8
 
 - Importable `training_data_bot` package with repaired public exports.
 - Core Pydantic models for documents, chunks, task templates, task results, datasets, quality reports, and processing jobs.
@@ -24,11 +25,13 @@ The main public entry point is `TrainingDataBot` from `training_data_bot`.
 - Optional dependency errors for DOCX, PDF, and web loaders that name the missing packages.
 - Configurable text normalization and character chunking with overlap.
 - Stable UUIDv5 chunk identifiers.
-- Metadata preservation from documents into chunks.
+- Metadata preservation from documents into chunks and training examples.
 - Template-driven task execution for the current `TaskType` values.
 - Offline mock AI provider for tests and local use.
 - Gemini provider design using `GEMINI_API_KEY` from the environment only.
 - Rule-based quality checks for relevance, coherence, diversity, bias, and toxicity.
+- Hardened JSONL and CSV dataset export with deterministic split handling.
+- Durable local JSON persistence for datasets and processing jobs.
 - Smoke script and pytest regression suite.
 
 ## Installation
@@ -67,13 +70,24 @@ smoke ok
 C:\Users\USER\anaconda3\python.exe -m pytest -q
 ```
 
-Latest Phase 5 result:
+Latest Phase 7/8 result:
 
 ```text
-54 passed, 3 skipped
+70 passed, 3 skipped
 ```
 
 The skipped tests are optional dependency success-path checks when the environment does not provide the matching loader capability.
+
+## Local Storage
+
+`DatabaseManager` persists runtime records to local JSON files by default:
+
+```text
+output/storage/datasets/{dataset_id}.json
+output/storage/jobs/{job_id}.json
+```
+
+Storage is offline-first, deterministic, and dependency-free. It supports saving, loading, and listing datasets and processing jobs. It does not provide indexing, concurrent write coordination, schema migrations, cloud storage, or distributed storage.
 
 ## Environment Variables
 
@@ -100,3 +114,13 @@ client = AIClient.from_env("gemini")
 ```
 
 Without explicit Gemini configuration, `AIClient()` uses `MockAIProvider` and performs no network calls.
+
+## Remaining Placeholders And Debt
+
+- Decodo integration remains stubbed/fallback-only, not production scraping behavior.
+- `ExportFormat.PARQUET`, `ExportFormat.HUGGINGFACE`, and `ExportFormat.OPENAI` are enum placeholders.
+- `TextChunk.embeddings` and `TextChunk.topics` fields exist, but no embeddings or topic extraction pipeline is implemented.
+- Pydantic v1-style validators still produce Pydantic v2 deprecation warnings.
+- `datetime.utcnow` use still produces deprecation warnings in newer Python/Pydantic combinations.
+- A fallback local `BaseModel` remains for no-Pydantic environments and may drift from Pydantic behavior.
+- No CLI entry point or formal package metadata is implemented yet.
