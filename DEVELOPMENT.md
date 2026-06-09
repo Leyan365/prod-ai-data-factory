@@ -17,8 +17,6 @@ Useful status command:
 git status --short
 ```
 
-The file `files completed.txt` is user-owned and should not be staged or modified by phase work.
-
 ## Test Workflow
 
 Run the full regression suite:
