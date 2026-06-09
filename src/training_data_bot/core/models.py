@@ -5,14 +5,14 @@ This module defines Pydantic models for all data structures used throughout
 the application , ensuring type safety and validation.
 """
 
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Union
 from uuid import UUID, uuid4
 
 try:
-    from pydantic import BaseModel, Field, validator # Note: root_validator is typically replaced by @model_validator in V2
+    from pydantic import BaseModel, Field, field_validator
     try:
         from pydantic import ConfigDict
     except ImportError:
@@ -34,7 +34,7 @@ except ImportError:
     def Field(default: Any = None, default_factory=None, **kwargs):
         return _FieldInfo(default=default, default_factory=default_factory)
 
-    def validator(*args, **kwargs):
+    def field_validator(*args, **kwargs):
         def decorate(fn):
             return fn
         return decorate
@@ -75,20 +75,44 @@ except ImportError:
                 if getattr(self, "total_examples", 0) == 0 and getattr(self, "examples", None) is not None:
                     self.total_examples = len(self.examples)
 
+        def model_dump(self, mode: str = "python", **kwargs) -> Dict[str, Any]:
+            data = {
+                key: value
+                for key, value in self.__dict__.items()
+                if not key.startswith("_")
+            }
+            if mode == "json":
+                return self._jsonable(data)
+            return data
+
+        def model_dump_json(self, **kwargs) -> str:
+            return _json.dumps(self.model_dump(mode="json"))
+
+        @classmethod
+        def model_validate(cls, data: Any):
+            if isinstance(data, cls):
+                return data
+            if not isinstance(data, dict):
+                raise TypeError("model_validate expects a dictionary")
+            return cls(**data)
+
         def dict(self) -> Dict[str, Any]:
+            return self.model_dump()
+
+        def json(self) -> str:
+            return self.model_dump_json()
+
+        def _raw_dict(self) -> Dict[str, Any]:
             return {
                 key: value
                 for key, value in self.__dict__.items()
                 if not key.startswith("_")
             }
 
-        def json(self) -> str:
-            return _json.dumps(self._jsonable(self.dict()))
-
         @classmethod
         def _jsonable(cls, value: Any) -> Any:
             if isinstance(value, BaseModel):
-                return cls._jsonable(value.dict())
+                return cls._jsonable(value.model_dump())
             if isinstance(value, dict):
                 return {cls._jsonable(k): cls._jsonable(v) for k, v in value.items()}
             if isinstance(value, list):
@@ -102,10 +126,16 @@ except ImportError:
     ConfigDict = None
 
 
+def utc_now() -> datetime:
+    """Return a timezone-aware UTC timestamp."""
+
+    return datetime.now(timezone.utc)
+
+
 class BaseEntity(BaseModel):
     """Base class for all entites with common fields."""
     id: UUID = Field(default_factory=uuid4)
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=utc_now)
     updated_at: Optional[datetime] = None
     metadata: Dict[str, Any] = Field(default_factory=dict)
 
@@ -181,25 +211,25 @@ class Document(BaseEntity):
     language: Optional[str] = "en"
     encoding: Optional[str] = "utf-8"
     size: int = 0 # bytes
-    word_count: int = 0
-    char_count: int = 0
+    word_count: int = Field(default=0, validate_default=True)
+    char_count: int = Field(default=0, validate_default=True)
 
     # processing info
     extraction_method: Optional[str] = None
     processing_time: Optional[float] = None # Changed type to float for consistency
 
-    # FIX: Corrected validator signature (v, values) and logic
-    @validator("word_count", pre=True, always=True)
-    def calculate_word_count(cls, v, values):
-        if "content" in values and values.get("content") is not None and v == 0:
-            return len(values["content"].split())
+    @field_validator("word_count", mode="before")
+    def calculate_word_count(cls, v, info):
+        content = getattr(info, "data", {}).get("content")
+        if content is not None and (v == 0 or v is None):
+            return len(content.split())
         return v
     
-    # FIX: Corrected validator signature (v, values) and logic
-    @validator("char_count", pre=True, always=True)
-    def calculate_char_count(cls, v, values):
-        if "content" in values and values.get("content") is not None and v == 0:
-            return len(values["content"])
+    @field_validator("char_count", mode="before")
+    def calculate_char_count(cls, v, info):
+        content = getattr(info, "data", {}).get("content")
+        if content is not None and (v == 0 or v is None):
+            return len(content)
         return v
     
 
@@ -209,7 +239,7 @@ class TextChunk(BaseEntity):
     start_index: int
     end_index: int
     chunk_index: int
-    token_count: int = 0
+    token_count: int = Field(default=0, validate_default=True)
 
     # Context preservation
     preceding_context: Optional[str] = None
@@ -219,12 +249,11 @@ class TextChunk(BaseEntity):
     embeddings: Optional[List[float]] = None
     topics: List[str] = Field(default_factory=list) # Changed hint to List[str]
 
-    # FIX: Corrected validator signature (v, values) and logic
-    @validator("token_count", pre=True, always=True)
-    def calculate_token_count(cls, v, values):
-        if "content" in values and values.get("content") is not None and v == 0:
-            # Rough estimation: 1 token = 4 characters
-            return len(values["content"]) // 4
+    @field_validator("token_count", mode="before")
+    def calculate_token_count(cls, v, info):
+        content = getattr(info, "data", {}).get("content")
+        if content is not None and (v == 0 or v is None):
+            return len(content) // 4
         return v
     
 
@@ -309,7 +338,7 @@ class Dataset(BaseEntity):
     examples: List[TrainingExample] = Field(default_factory=list) 
 
     # Statistics
-    total_examples: int = 0
+    total_examples: int = Field(default=0, validate_default=True)
     task_type_counts: Dict[TaskType, int] = Field(default_factory=dict)
     quality_stats: Dict[QualityMetric, Dict[str, float]] = Field(default_factory=dict)
 
@@ -323,11 +352,11 @@ class Dataset(BaseEntity):
     exported_at: Optional[datetime] = None
     export_path: Optional[Path] = None
 
-    # FIX: Corrected validator signature (v, values) and logic
-    @validator("total_examples", pre=True, always=True)
-    def calculate_total_examples(cls, v, values):
-        if "examples" in values and v == 0:
-            return len(values["examples"])
+    @field_validator("total_examples", mode="before")
+    def calculate_total_examples(cls, v, info):
+        examples = getattr(info, "data", {}).get("examples")
+        if examples is not None and (v == 0 or v is None):
+            return len(examples)
         return v
 
 
@@ -354,7 +383,7 @@ class ProcessingJob(BaseEntity):
     total_items: int = 0
     processed_items: int = 0
     failed_items: int = 0
-    started_at: datetime = Field(default_factory=datetime.utcnow)
+    started_at: datetime = Field(default_factory=utc_now)
     estimated_completion: Optional[datetime] = None
     input_data: Dict[str, Any] = Field(default_factory=dict)
     output_data: Dict[str, Any] = Field(default_factory=dict)

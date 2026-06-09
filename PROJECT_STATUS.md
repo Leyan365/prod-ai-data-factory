@@ -15,21 +15,22 @@ This project is being built in tutorial-aligned phases. The current implementati
 | Phase 6: export and dataset packaging hardening | Completed | `a9cfaff` |
 | Phase 7: durable local storage persistence | Completed | `6e3619e` |
 | Cleanup: remove obsolete notes file | Completed | `8cbc110` |
-| Phase 8: documentation refresh after export and storage phases | Completed | This commit |
+| Phase 8: documentation refresh after export and storage phases | Completed | `e394986` |
+| Phase 9: Pydantic v2 and core model cleanup | Completed in working tree | Pending commit |
 
 ## Test Status
 
-Latest full regression run after Phase 7:
+Latest full regression run after Phase 9:
 
 ```text
-70 passed, 3 skipped
+76 passed, 3 skipped
 ```
 
 Additional checks:
 
 ```text
 scripts/smoke_check.py -> smoke ok
-syntax ast.parse pass -> parsed 28 python files
+syntax ast.parse pass -> parsed 29 python files
 ```
 
 The direct `compileall` check is not used as the final syntax signal because Windows may deny writes into existing `__pycache__` files. The read-only `ast.parse` check validates syntax without modifying cache files.
@@ -54,20 +55,16 @@ The direct `compileall` check is not used as the final syntax signal because Win
 - `TextChunk.embeddings` and `TextChunk.topics` fields exist, but no embeddings or topic extraction pipeline is implemented.
 - Phase 5 quality scoring is deterministic and rule-based. It is useful as a baseline filter, not a substitute for model-based evaluation.
 - Local JSON storage is durable and deterministic, but it is not a production database, migration system, concurrent writer system, cloud storage layer, or query engine.
-- Pydantic v1-style validators still produce Pydantic v2 deprecation warnings.
-- `datetime.utcnow` use still produces deprecation warnings in newer Python/Pydantic combinations.
-- A fallback local `BaseModel` remains for no-Pydantic environments, which may drift from Pydantic behavior.
+- A fallback local `BaseModel` remains for no-Pydantic environments and may drift from Pydantic behavior.
 - No CLI entry point or formal package metadata is implemented yet.
 
 ## Next Planned Phase
 
-Recommended Phase 9: Pydantic v2 and core model cleanup.
+Recommended Phase 10: packaging, CLI, and project metadata cleanup.
 
 Suggested scope:
 
-- Migrate Pydantic v1-style validators to Pydantic v2-compatible validators.
-- Replace `datetime.utcnow` defaults with timezone-aware UTC defaults.
-- Review model serialization/deserialization paths used by export and local storage.
-- Decide whether to keep, simplify, or remove the fallback local `BaseModel`.
-- Preserve public model fields and current `TrainingDataBot` workflows.
-- Avoid export format expansion, embeddings, vector databases, production scraping, cloud storage, and new AI providers in this phase.
+- Add formal package metadata and editable-install support.
+- Add a minimal offline-first CLI for smoke-friendly local workflows.
+- Keep default AI behavior offline/mock.
+- Avoid embeddings, vector databases, production scraping, cloud storage, and new AI providers in this phase.

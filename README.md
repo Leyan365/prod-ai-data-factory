@@ -70,10 +70,10 @@ smoke ok
 C:\Users\USER\anaconda3\python.exe -m pytest -q
 ```
 
-Latest Phase 7/8 result:
+Latest Phase 9 result:
 
 ```text
-70 passed, 3 skipped
+76 passed, 3 skipped
 ```
 
 The skipped tests are optional dependency success-path checks when the environment does not provide the matching loader capability.
@@ -120,7 +120,5 @@ Without explicit Gemini configuration, `AIClient()` uses `MockAIProvider` and pe
 - Decodo integration remains stubbed/fallback-only, not production scraping behavior.
 - `ExportFormat.PARQUET`, `ExportFormat.HUGGINGFACE`, and `ExportFormat.OPENAI` are enum placeholders.
 - `TextChunk.embeddings` and `TextChunk.topics` fields exist, but no embeddings or topic extraction pipeline is implemented.
-- Pydantic v1-style validators still produce Pydantic v2 deprecation warnings.
-- `datetime.utcnow` use still produces deprecation warnings in newer Python/Pydantic combinations.
 - A fallback local `BaseModel` remains for no-Pydantic environments and may drift from Pydantic behavior.
 - No CLI entry point or formal package metadata is implemented yet.
