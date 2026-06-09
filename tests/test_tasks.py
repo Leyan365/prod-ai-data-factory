@@ -133,8 +133,8 @@ def test_execute_task_failure_raises_by_default():
         )
 
 
-def test_training_bot_process_documents_uses_mock_task_layer():
-    bot = TrainingDataBot()
+def test_training_bot_process_documents_uses_mock_task_layer(workspace_tmp):
+    bot = TrainingDataBot(config={"storage_dir": workspace_tmp / "storage"})
     document = Document(
         title="Bot Doc",
         content="This is source content for the bot workflow.",

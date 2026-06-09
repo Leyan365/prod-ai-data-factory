@@ -34,6 +34,10 @@ class ExportError(TrainingDataBotError):
     """Raised when dataset export configuration or writing fails."""
 
 
+class StorageError(TrainingDataBotError):
+    """Raised when local persistence reads or writes fail."""
+
+
 class AIClientError(TrainingDataBotError):
     """Raised when an AI provider call fails."""
 

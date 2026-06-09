@@ -9,8 +9,29 @@ from pathlib import Path
 from typing import Any, Dict, Iterable, List, Sequence, Tuple
 from uuid import UUID
 
-from .core.exceptions import ExportError
-from .core.models import Dataset, ExportFormat, TrainingExample
+from .core.config import settings
+from .core.exceptions import ExportError, StorageError
+from .core.models import Dataset, ExportFormat, ProcessingJob, TrainingExample
+
+
+def _model_to_record(model: Any) -> Dict[str, Any]:
+    if hasattr(model, "model_dump"):
+        data = model.model_dump(mode="json")
+    else:
+        data = model.dict()
+    return _jsonable(data)
+
+
+def _jsonable(value: Any) -> Any:
+    if isinstance(value, dict):
+        return {str(_jsonable(key)): _jsonable(item) for key, item in value.items()}
+    if isinstance(value, list):
+        return [_jsonable(item) for item in value]
+    if hasattr(value, "value"):
+        return value.value
+    if isinstance(value, (datetime, Path, UUID)):
+        return str(value)
+    return value
 
 
 class DatasetExporter:
@@ -168,11 +189,7 @@ class DatasetExporter:
                 writer.writerow(self._example_to_csv_row(example))
 
     def _example_to_record(self, example: TrainingExample) -> Dict[str, Any]:
-        if hasattr(example, "model_dump"):
-            data = example.model_dump(mode="json")
-        else:
-            data = example.dict()
-        return self._jsonable(data)
+        return _model_to_record(example)
 
     def _example_to_csv_row(self, example: TrainingExample) -> Dict[str, Any]:
         record = self._example_to_record(example)
@@ -188,19 +205,94 @@ class DatasetExporter:
         return row
 
     def _jsonable(self, value: Any) -> Any:
-        if isinstance(value, dict):
-            return {str(self._jsonable(key)): self._jsonable(item) for key, item in value.items()}
-        if isinstance(value, list):
-            return [self._jsonable(item) for item in value]
-        if hasattr(value, "value"):
-            return value.value
-        if isinstance(value, (datetime, Path, UUID)):
-            return str(value)
-        return value
+        return _jsonable(value)
 
 
 class DatabaseManager:
-    """Placeholder database manager for lifecycle compatibility."""
+    """Local JSON persistence for datasets and processing jobs."""
+
+    def __init__(self, storage_dir: Path | str | None = None):
+        self.storage_dir = Path(storage_dir) if storage_dir is not None else settings.output_dir / "storage"
+        self.datasets_dir = self.storage_dir / "datasets"
+        self.jobs_dir = self.storage_dir / "jobs"
+
+    async def save_dataset(self, dataset: Dataset) -> Path:
+        if not isinstance(dataset, Dataset):
+            raise StorageError("dataset must be a Dataset instance")
+        return self._write_record(self.datasets_dir / f"{dataset.id}.json", _model_to_record(dataset))
+
+    async def load_dataset(self, dataset_id: UUID | str) -> Dataset:
+        path = self._entity_path(self.datasets_dir, dataset_id)
+        return self._load_model(path, Dataset, "dataset")
+
+    async def list_datasets(self) -> List[Dataset]:
+        return [self._load_model(path, Dataset, "dataset") for path in self._iter_records(self.datasets_dir)]
+
+    async def save_job(self, job: ProcessingJob) -> Path:
+        if not isinstance(job, ProcessingJob):
+            raise StorageError("job must be a ProcessingJob instance")
+        return self._write_record(self.jobs_dir / f"{job.id}.json", _model_to_record(job))
+
+    async def load_job(self, job_id: UUID | str) -> ProcessingJob:
+        path = self._entity_path(self.jobs_dir, job_id)
+        return self._load_model(path, ProcessingJob, "job")
+
+    async def list_jobs(self) -> List[ProcessingJob]:
+        return [self._load_model(path, ProcessingJob, "job") for path in self._iter_records(self.jobs_dir)]
 
     async def close(self) -> None:
         return None
+
+    def _entity_path(self, base_dir: Path, entity_id: UUID | str) -> Path:
+        entity_text = str(entity_id)
+        path = base_dir / f"{entity_text}.json"
+        if not path.exists():
+            raise StorageError(f"Stored record not found: {entity_text}")
+        return path
+
+    def _iter_records(self, base_dir: Path) -> List[Path]:
+        if not base_dir.exists():
+            return []
+        if not base_dir.is_dir():
+            raise StorageError(f"Storage path is not a directory: {base_dir}")
+        return sorted(base_dir.glob("*.json"), key=lambda path: path.name)
+
+    def _write_record(self, path: Path, record: Dict[str, Any]) -> Path:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        temp_path = path.with_name(f"{path.name}.tmp")
+        try:
+            with temp_path.open("w", encoding="utf-8", newline="\n") as f:
+                json.dump(record, f, ensure_ascii=False, indent=2, sort_keys=True)
+                f.write("\n")
+            try:
+                temp_path.replace(path)
+            except PermissionError:
+                with path.open("w", encoding="utf-8", newline="\n") as f:
+                    json.dump(record, f, ensure_ascii=False, indent=2, sort_keys=True)
+                    f.write("\n")
+                try:
+                    temp_path.unlink()
+                except OSError:
+                    pass
+        except OSError as exc:
+            raise StorageError(f"Failed to write storage record: {path}", cause=exc) from exc
+        return path
+
+    def _load_model(self, path: Path, model_type: Any, label: str):
+        try:
+            with path.open("r", encoding="utf-8") as f:
+                data = json.load(f)
+        except json.JSONDecodeError as exc:
+            raise StorageError(f"Stored {label} record is malformed: {path}", cause=exc) from exc
+        except OSError as exc:
+            raise StorageError(f"Failed to read stored {label} record: {path}", cause=exc) from exc
+
+        if not isinstance(data, dict):
+            raise StorageError(f"Stored {label} record must be a JSON object: {path}")
+
+        try:
+            if hasattr(model_type, "model_validate"):
+                return model_type.model_validate(data)
+            return model_type(**data)
+        except Exception as exc:
+            raise StorageError(f"Stored {label} record is invalid: {path}", cause=exc) from exc

@@ -63,7 +63,7 @@ class TrainingDataBot:
             self.preprocessor = TextPreprocessor()
             self.evaluator = QualityEvaluator()
             self.exporter = DatasetExporter()
-            self.db_manager = DatabaseManager()
+            self.db_manager = DatabaseManager(self.config.get("storage_dir"))
             # State (Memory boxes)
             self.documents: Dict[UUID, Document] = {}
             self.datasets: Dict[UUID, Dataset] = {}
@@ -149,6 +149,7 @@ class TrainingDataBot:
 
                 self.jobs[job.id] = job
                 job.status = ProcessingStatus.PROCESSING # Corrected capitalization
+                await self.db_manager.save_job(job)
 
                 # process documents
 
@@ -219,6 +220,8 @@ class TrainingDataBot:
                     "examples_generated": len(all_examples), # <- Fix typo 'all_exmaples'
                     "quality_filtered": quality_filter,
                 }
+                await self.db_manager.save_dataset(dataset)
+                await self.db_manager.save_job(job)
 
                 self.logger.info(f"Processing completed. Generated {len(all_examples)} examples") # <- Fix typo 'Processed' and 'all_exmaples'
                 return dataset
@@ -227,6 +230,10 @@ class TrainingDataBot:
                 if 'job' in locals():
                     job.status = ProcessingStatus.FAILED # Corrected capitalization
                     job.error_message = str(e)
+                    try:
+                        await self.db_manager.save_job(job)
+                    except Exception as persist_error:
+                        self.logger.error(f"Failed to persist failed job state: {persist_error}")
 
                 self.logger.error(f"Document processing failed: {e}") 
                 raise # Re-raise the exception to stop execution
@@ -282,6 +289,7 @@ class TrainingDataBot:
                 # Update dataset metadata
                 dataset.export_format = format
                 dataset.export_path = exported_path
+                await self.db_manager.save_dataset(dataset)
 
                 self.logger.info(f"Dataset exported to {exported_path}") # <- Fix typo 'tp'
                 return exported_path
@@ -289,6 +297,28 @@ class TrainingDataBot:
             except Exception as e:
                 self.logger.error(f"Dataset export failed: {e}")
                 raise
+
+    async def load_dataset(self, dataset_id: Union[str, UUID]) -> Dataset:
+        dataset = await self.db_manager.load_dataset(dataset_id)
+        self.datasets[dataset.id] = dataset
+        return dataset
+
+    async def list_persisted_datasets(self) -> List[Dataset]:
+        datasets = await self.db_manager.list_datasets()
+        for dataset in datasets:
+            self.datasets[dataset.id] = dataset
+        return datasets
+
+    async def load_job(self, job_id: Union[str, UUID]) -> ProcessingJob:
+        job = await self.db_manager.load_job(job_id)
+        self.jobs[job.id] = job
+        return job
+
+    async def list_persisted_jobs(self) -> List[ProcessingJob]:
+        jobs = await self.db_manager.list_jobs()
+        for job in jobs:
+            self.jobs[job.id] = job
+        return jobs
 
 #  StatisticsReport
 

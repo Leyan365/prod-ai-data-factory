@@ -158,7 +158,7 @@ class StaticProvider:
         return None
 
 
-def test_training_bot_quality_filter_filters_failed_and_approves_passing_examples():
+def test_training_bot_quality_filter_filters_failed_and_approves_passing_examples(workspace_tmp):
     document = Document(
         title="Quality Doc",
         content="The solar system has planets orbiting the sun.",
@@ -166,7 +166,7 @@ def test_training_bot_quality_filter_filters_failed_and_approves_passing_example
         doc_type=DocumentType.TXT,
     )
 
-    failing_bot = TrainingDataBot()
+    failing_bot = TrainingDataBot(config={"storage_dir": workspace_tmp / "failing-storage"})
     failing_bot.ai_client = AIClient(provider=StaticProvider("x"), max_retries=0)
     failing_dataset = run(
         failing_bot.process_documents(
@@ -177,7 +177,7 @@ def test_training_bot_quality_filter_filters_failed_and_approves_passing_example
     )
     run(failing_bot.cleanup())
 
-    passing_bot = TrainingDataBot()
+    passing_bot = TrainingDataBot(config={"storage_dir": workspace_tmp / "passing-storage"})
     passing_bot.ai_client = AIClient(
         provider=StaticProvider("The solar system has planets orbiting the sun."),
         max_retries=0,
