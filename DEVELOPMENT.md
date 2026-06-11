@@ -26,10 +26,10 @@ Run the full regression suite:
 C:\Users\USER\anaconda3\python.exe -m pytest -q
 ```
 
-Current expected result after Phase 9:
+Current expected result after Phase 10:
 
 ```text
-76 passed, 3 skipped
+88 passed
 ```
 
 Run the smoke check:
@@ -49,7 +49,7 @@ Use `ast.parse` instead of `compileall` when `__pycache__` permissions prevent b
 Current expected syntax result:
 
 ```text
-parsed 29 python files
+parsed 32 python files
 ```
 
 ## Commit Strategy
@@ -69,6 +69,7 @@ Recent phase commits:
 - Phase 7 durable local storage: `6e3619e`
 - Cleanup after Phase 7: `8cbc110`
 - Phase 8 documentation refresh: `e394986`
+- Phase 9 Pydantic v2 model cleanup: `e6b34e4`
 
 ## Export And Storage Development
 
@@ -96,16 +97,32 @@ Placeholder export enum values:
 
 These are intentionally not implemented yet.
 
-## Recommended Next Phase
+## Packaging And CLI Development
 
-Recommended Phase 10: packaging, CLI, and project metadata cleanup.
+Phase 10 adds package metadata and an offline-first command line interface.
 
-Suggested scope:
+Install the package in editable mode:
 
-1. Add formal package metadata and editable-install support.
-2. Add a minimal offline-first CLI for smoke-friendly local workflows.
-3. Preserve current model field names and `TrainingDataBot` workflows.
-4. Keep default AI behavior offline/mock.
+```powershell
+C:\Users\USER\anaconda3\python.exe -m pip install -e .
+```
+
+Useful CLI checks:
+
+```powershell
+training-data-bot --version
+training-data-bot status
+training-data-bot smoke
+training-data-bot process .tmp\cli-demo\sample.txt --output .tmp\cli-demo\dataset.jsonl --format jsonl --no-split --no-quality-filter
+training-data-bot export <dataset_id> --output .tmp\cli-demo\export.csv --format csv --no-split
+```
+
+CLI development rules:
+
+1. Preserve current model field names and `TrainingDataBot` workflows.
+2. Keep default AI behavior offline/mock.
+3. Require explicit `--provider gemini` and `GEMINI_API_KEY` before Gemini use.
+4. Do not expose placeholder export formats through the CLI.
 
 Out of scope for the packaging and CLI phase:
 

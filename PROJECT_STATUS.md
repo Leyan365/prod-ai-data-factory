@@ -1,6 +1,6 @@
 # Project Status
 
-This project is being built in tutorial-aligned phases. The current implementation has completed Phases 1-8, including export hardening, durable local storage, cleanup, and documentation refresh work.
+This project is being built in tutorial-aligned phases. The current implementation has completed Phases 1-10 in the working tree, including export hardening, durable local storage, Pydantic v2 model cleanup, package metadata, and an offline-first CLI.
 
 ## Completed Phases
 
@@ -17,20 +17,21 @@ This project is being built in tutorial-aligned phases. The current implementati
 | Cleanup: remove obsolete notes file | Completed | `8cbc110` |
 | Phase 8: documentation refresh after export and storage phases | Completed | `e394986` |
 | Phase 9: Pydantic v2 and core model cleanup | Completed | `e6b34e4` |
+| Phase 10: packaging, CLI, and project metadata cleanup | Completed in working tree | Pending commit |
 
 ## Test Status
 
-Latest full regression run after Phase 9:
+Latest full regression run after Phase 10:
 
 ```text
-76 passed, 3 skipped
+88 passed
 ```
 
 Additional checks:
 
 ```text
 scripts/smoke_check.py -> smoke ok
-syntax ast.parse pass -> parsed 29 python files
+syntax ast.parse pass -> parsed 32 python files
 ```
 
 The direct `compileall` check is not used as the final syntax signal because Windows may deny writes into existing `__pycache__` files. The read-only `ast.parse` check validates syntax without modifying cache files.
@@ -47,6 +48,8 @@ The direct `compileall` check is not used as the final syntax signal because Win
 - Hardened JSONL and CSV dataset export.
 - Deterministic train/validation/test split packaging.
 - Durable local JSON persistence for datasets and processing jobs under `output/storage`.
+- Editable-install package metadata via `pyproject.toml`.
+- Offline-first `training-data-bot` CLI for version, status, smoke, process, and export workflows.
 
 ## Known Limitations
 
@@ -56,15 +59,20 @@ The direct `compileall` check is not used as the final syntax signal because Win
 - Phase 5 quality scoring is deterministic and rule-based. It is useful as a baseline filter, not a substitute for model-based evaluation.
 - Local JSON storage is durable and deterministic, but it is not a production database, migration system, concurrent writer system, cloud storage layer, or query engine.
 - A fallback local `BaseModel` remains for no-Pydantic environments and may drift from Pydantic behavior.
-- No CLI entry point or formal package metadata is implemented yet.
 
-## Next Planned Phase
+## Recommended Post-Phase 10 Options
 
-Recommended Phase 10: packaging, CLI, and project metadata cleanup.
+Suggested tutorial scope:
 
-Suggested scope:
+- Add small CLI examples or tutorial walkthrough fixtures.
+- Polish repair-era comments and public API documentation.
+- Populate dataset statistics fields deterministically.
 
-- Add formal package metadata and editable-install support.
-- Add a minimal offline-first CLI for smoke-friendly local workflows.
-- Keep default AI behavior offline/mock.
-- Avoid embeddings, vector databases, production scraping, cloud storage, and new AI providers in this phase.
+Production-hardening work remains out of scope for the tutorial baseline:
+
+- Decodo production integration
+- embeddings and vector databases
+- cloud storage
+- database migrations
+- new AI providers
+- live network tests

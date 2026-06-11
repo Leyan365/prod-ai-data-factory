@@ -1,6 +1,6 @@
 # Production-Grade Data Factory
 
-Training Data Bot is a tutorial-driven Python package for turning source documents into training data examples. The current implementation covers the local, offline baseline through Phase 9: package repair, loader hardening, preprocessing, task template execution, mock/Gemini AI provider plumbing, deterministic quality evaluation, hardened dataset export, durable local storage, refreshed project documentation, and Pydantic v2 model cleanup.
+Training Data Bot is a tutorial-driven Python package for turning source documents into training data examples. The current implementation covers the local, offline baseline through Phase 10: package repair, loader hardening, preprocessing, task template execution, mock/Gemini AI provider plumbing, deterministic quality evaluation, hardened dataset export, durable local storage, refreshed project documentation, Pydantic v2 model cleanup, package metadata, and an offline-first CLI.
 
 ## Current Architecture
 
@@ -16,7 +16,7 @@ The package is organized around a local data flow:
 
 The main public entry point is `TrainingDataBot` from `training_data_bot`.
 
-## Features Through Phase 9
+## Features Through Phase 10
 
 - Importable `training_data_bot` package with repaired public exports.
 - Core Pydantic models for documents, chunks, task templates, task results, datasets, quality reports, and processing jobs.
@@ -32,11 +32,19 @@ The main public entry point is `TrainingDataBot` from `training_data_bot`.
 - Rule-based quality checks for relevance, coherence, diversity, bias, and toxicity.
 - Hardened JSONL and CSV dataset export with deterministic split handling.
 - Durable local JSON persistence for datasets and processing jobs.
+- `pyproject.toml` package metadata with editable-install support.
+- `training-data-bot` console script for local tutorial workflows.
 - Smoke script and pytest regression suite.
 
 ## Installation
 
-Use the project from the repository root. The user environment for this project has been run with:
+Use the project from the repository root. For tutorial development, install the package in editable mode:
+
+```powershell
+C:\Users\USER\anaconda3\python.exe -m pip install -e .
+```
+
+The legacy dependency-only setup still works for direct script execution:
 
 ```powershell
 C:\Users\USER\anaconda3\python.exe -m pip install -r requirements.txt
@@ -51,6 +59,20 @@ The dependency file includes:
 - `python-docx`
 - `pymupdf`
 - `pymupdf4llm`
+
+## Command Line Usage
+
+After editable install, use the `training-data-bot` command:
+
+```powershell
+training-data-bot --version
+training-data-bot status
+training-data-bot smoke
+training-data-bot process .tmp\cli-demo\sample.txt --output .tmp\cli-demo\dataset.jsonl --format jsonl --no-split --no-quality-filter
+training-data-bot export <dataset_id> --output .tmp\cli-demo\export.csv --format csv --no-split
+```
+
+The CLI supports local files and directories for `process`, JSONL/CSV export formats, and local JSON persistence. It defaults to the offline mock AI provider and does not require credentials.
 
 ## Running Smoke Checks
 
@@ -70,13 +92,13 @@ smoke ok
 C:\Users\USER\anaconda3\python.exe -m pytest -q
 ```
 
-Latest Phase 9 result:
+Latest Phase 10 result:
 
 ```text
-76 passed, 3 skipped
+88 passed
 ```
 
-The skipped tests are optional dependency success-path checks when the environment does not provide the matching loader capability.
+Optional dependency success-path checks may be skipped in environments that do not provide the matching loader capability.
 
 ## Local Storage
 
@@ -115,10 +137,15 @@ client = AIClient.from_env("gemini")
 
 Without explicit Gemini configuration, `AIClient()` uses `MockAIProvider` and performs no network calls.
 
+The CLI also defaults to mock AI. Gemini is used only when explicitly selected and the key exists:
+
+```powershell
+training-data-bot process sample.txt --output dataset.jsonl --format jsonl --provider gemini
+```
+
 ## Remaining Placeholders And Debt
 
 - Decodo integration remains stubbed/fallback-only, not production scraping behavior.
 - `ExportFormat.PARQUET`, `ExportFormat.HUGGINGFACE`, and `ExportFormat.OPENAI` are enum placeholders.
 - `TextChunk.embeddings` and `TextChunk.topics` fields exist, but no embeddings or topic extraction pipeline is implemented.
 - A fallback local `BaseModel` remains for no-Pydantic environments and may drift from Pydantic behavior.
-- No CLI entry point or formal package metadata is implemented yet.

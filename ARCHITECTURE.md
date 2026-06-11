@@ -2,6 +2,22 @@
 
 The Training Data Bot package is organized as a layered local pipeline. Each layer has a small public surface and passes typed models to the next layer. The current architecture is offline-first by default.
 
+## Packaging And CLI Layer
+
+Primary files:
+
+- `pyproject.toml`
+- `src/training_data_bot/cli.py`
+- `src/training_data_bot/__main__.py`
+
+Responsibilities:
+
+- Provide editable-install package metadata.
+- Register the `training-data-bot` console script.
+- Expose tutorial-friendly terminal commands for version, status, smoke checks, local processing, and local export.
+- Wrap existing `TrainingDataBot` methods without changing the Python API.
+- Keep mock AI as the default provider and require explicit Gemini selection plus `GEMINI_API_KEY`.
+
 ## Loader Layer
 
 Primary module: `src/training_data_bot/sources`
@@ -148,7 +164,7 @@ flowchart TD
     Q["ProcessingJob"] --> P
 ```
 
-`TrainingDataBot` orchestrates these layers through `load_documents()`, `process_documents()`, `evaluate_dataset()`, `export_dataset()`, `load_dataset()`, `list_persisted_datasets()`, `load_job()`, `list_persisted_jobs()`, `quick_process()`, and `cleanup()`.
+`training-data-bot` and `python -m training_data_bot` are thin CLI entry points over `TrainingDataBot`, which orchestrates these layers through `load_documents()`, `process_documents()`, `evaluate_dataset()`, `export_dataset()`, `load_dataset()`, `list_persisted_datasets()`, `load_job()`, `list_persisted_jobs()`, `quick_process()`, and `cleanup()`.
 
 ## Remaining Architecture Gaps
 
@@ -156,5 +172,5 @@ flowchart TD
 - `TextChunk.embeddings` and `TextChunk.topics` fields exist, but no embeddings or topic extraction pipeline is implemented.
 - Parquet, Hugging Face, and OpenAI export enum values are placeholders.
 - Dataset statistics fields are present but not fully populated by a dedicated lifecycle layer.
-- No CLI, package metadata, or deployment surface is implemented.
+- No deployment surface beyond editable-install tutorial CLI is implemented.
 - No schema migration layer exists for persisted JSON records.
