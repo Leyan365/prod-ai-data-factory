@@ -16,7 +16,7 @@ This project is being built in tutorial-aligned phases. The current implementati
 | Phase 7: durable local storage persistence | Completed | `6e3619e` |
 | Cleanup: remove obsolete notes file | Completed | `8cbc110` |
 | Phase 8: documentation refresh after export and storage phases | Completed | `e394986` |
-| Phase 9: Pydantic v2 and core model cleanup | Completed in working tree | Pending commit |
+| Phase 9: Pydantic v2 and core model cleanup | Completed | `e6b34e4` |
 
 ## Test Status
 

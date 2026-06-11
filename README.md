@@ -1,6 +1,6 @@
 # Production-Grade Data Factory
 
-Training Data Bot is a tutorial-driven Python package for turning source documents into training data examples. The current implementation covers the local, offline baseline through Phase 8: package repair, loader hardening, preprocessing, task template execution, mock/Gemini AI provider plumbing, deterministic quality evaluation, hardened dataset export, durable local storage, and refreshed project documentation.
+Training Data Bot is a tutorial-driven Python package for turning source documents into training data examples. The current implementation covers the local, offline baseline through Phase 9: package repair, loader hardening, preprocessing, task template execution, mock/Gemini AI provider plumbing, deterministic quality evaluation, hardened dataset export, durable local storage, refreshed project documentation, and Pydantic v2 model cleanup.
 
 ## Current Architecture
 
@@ -16,7 +16,7 @@ The package is organized around a local data flow:
 
 The main public entry point is `TrainingDataBot` from `training_data_bot`.
 
-## Features Through Phase 8
+## Features Through Phase 9
 
 - Importable `training_data_bot` package with repaired public exports.
 - Core Pydantic models for documents, chunks, task templates, task results, datasets, quality reports, and processing jobs.
