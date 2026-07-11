@@ -6,7 +6,7 @@ Enterprise-grade training data curation bot for LLM fine-tuning using Decodo + P
 """ 
 
 
-__version__ = "0.1.0"
+__version__ = "0.2.0"
 __author__ = "Training Data Bot Team"
 __email__ = "team@company.com"
 __description__ = "Enterprise-grade training data curation bot for LLM fine-tuning"

@@ -24,10 +24,10 @@ def dataset_id_from(output):
 
 def test_cli_version_commands_print_package_version(capsys):
     assert run_cli(["--version"]) == 0
-    assert capsys.readouterr().out.strip() == "0.1.0"
+    assert capsys.readouterr().out.strip() == "0.2.0"
 
     assert run_cli(["version"]) == 0
-    assert capsys.readouterr().out.strip() == "0.1.0"
+    assert capsys.readouterr().out.strip() == "0.2.0"
 
 
 def test_cli_status_reports_offline_defaults(workspace_tmp, capsys):
@@ -36,7 +36,7 @@ def test_cli_status_reports_offline_defaults(workspace_tmp, capsys):
     assert run_cli(["status", "--storage-dir", str(storage_dir)]) == 0
 
     output = capsys.readouterr().out
-    assert "training-data-bot 0.1.0" in output
+    assert "training-data-bot 0.2.0" in output
     assert "default_provider: mock" in output
     assert "supported_exports: csv, jsonl" in output
     assert "persisted_datasets: 0" in output

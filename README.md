@@ -1,6 +1,6 @@
 # Production-Grade Data Factory
 
-Training Data Bot is a tutorial-driven Python package for turning source documents into training data examples. The current implementation covers the local, offline baseline through Phase 10: package repair, loader hardening, preprocessing, task template execution, mock/Gemini AI provider plumbing, deterministic quality evaluation, hardened dataset export, durable local storage, refreshed project documentation, Pydantic v2 model cleanup, package metadata, and an offline-first CLI.
+Training Data Bot is a tutorial-driven Python package for turning source documents into training data examples. The current implementation covers the local, offline baseline through Phase 11: package repair, loader hardening, preprocessing, task template execution, mock/Gemini AI provider plumbing, deterministic quality evaluation, hardened dataset export, durable local storage, refreshed project documentation, Pydantic v2 model cleanup, package metadata, and an offline-first CLI.
 
 ## Current Architecture
 
@@ -16,7 +16,7 @@ The package is organized around a local data flow:
 
 The main public entry point is `TrainingDataBot` from `training_data_bot`.
 
-## Features Through Phase 10
+## Features Through Phase 11
 
 - Importable `training_data_bot` package with repaired public exports.
 - Core Pydantic models for documents, chunks, task templates, task results, datasets, quality reports, and processing jobs.
@@ -92,10 +92,10 @@ smoke ok
 C:\Users\USER\anaconda3\python.exe -m pytest -q
 ```
 
-Latest Phase 10 result:
+Latest Phase 11 result:
 
 ```text
-88 passed
+107 passed
 ```
 
 Optional dependency success-path checks may be skipped in environments that do not provide the matching loader capability.
@@ -152,4 +152,4 @@ training-data-bot process sample.txt --output dataset.jsonl --format jsonl --pro
 
 ## Production Hardening
 
-Remote URL ingestion is disabled by default. Enable it only with an explicit host allowlist and outbound network controls. Local storage writes use versioned records and atomic replacement; split exports are valid only when manifest.json is present. Processing may finish as partial; automation must treat that outcome as non-zero. Resource limits are configurable through ResourceLimits. Refresh `requirements.lock` only from a clean Linux Python 3.10 environment (the lowest supported interpreter), then validate it across the Linux CI matrix.
+Remote URL ingestion is disabled by default. Enable it only with an explicit host allowlist and outbound network controls. Local storage writes use versioned records and atomic replacement; split exports are valid only when manifest.json is present. Processing may finish as partial; automation must treat that outcome as non-zero. Resource limits are configurable through ResourceLimits. Phase 11 hardening is complete, Python 3.10-3.12 CI is green, and v0.2.0 is the current release candidate. Refresh `requirements.lock` only from a clean Linux Python 3.10 environment (the lowest supported interpreter), then validate it across the Linux CI matrix.

@@ -1,6 +1,6 @@
 # Project Status
 
-This project is being built in tutorial-aligned phases. The current implementation has completed Phases 1-10 in the working tree, including export hardening, durable local storage, Pydantic v2 model cleanup, package metadata, and an offline-first CLI.
+This project is being built in tutorial-aligned phases. The current implementation has completed Phases 1-11 in the working tree, including export hardening, durable local storage, Pydantic v2 model cleanup, package metadata, and an offline-first CLI.
 
 ## Completed Phases
 
@@ -17,21 +17,22 @@ This project is being built in tutorial-aligned phases. The current implementati
 | Cleanup: remove obsolete notes file | Completed | `8cbc110` |
 | Phase 8: documentation refresh after export and storage phases | Completed | `e394986` |
 | Phase 9: Pydantic v2 and core model cleanup | Completed | `e6b34e4` |
-| Phase 10: packaging, CLI, and project metadata cleanup | Completed | 69f6dec |
+| Phase 10: packaging, CLI, and project metadata cleanup | Completed | `69f6dec` |
+| Phase 11: security and runtime hardening closure | Completed | `f9598b2` |
 
 ## Test Status
 
-Latest full regression run after Phase 10:
+Latest full regression run after Phase 11:
 
 ```text
-88 passed
+107 passed
 ```
 
 Additional checks:
 
 ```text
 scripts/smoke_check.py -> smoke ok
-syntax ast.parse pass -> parsed 32 python files
+syntax ast.parse pass -> parsed 35 Python files
 ```
 
 The direct `compileall` check is not used as the final syntax signal because Windows may deny writes into existing `__pycache__` files. The read-only `ast.parse` check validates syntax without modifying cache files.
@@ -60,7 +61,11 @@ The direct `compileall` check is not used as the final syntax signal because Win
 - Local JSON storage is durable and deterministic, but it is not a production database, migration system, concurrent writer system, cloud storage layer, or query engine.
 - A fallback local `BaseModel` remains for no-Pydantic environments and may drift from Pydantic behavior.
 
-## Recommended Post-Phase 10 Options
+## v0.2.0 Release Status
+
+v0.2.0 release preparation is complete. Python 3.10, 3.11, and 3.12 CI, hash-checked dependency installation, tests, smoke checks, AST validation, wheel builds, wheel installation, and CLI/version checks are green.
+
+## Recommended Post-Phase 11 Options
 
 Suggested tutorial scope:
 
