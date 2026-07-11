@@ -152,4 +152,4 @@ training-data-bot process sample.txt --output dataset.jsonl --format jsonl --pro
 
 ## Production Hardening
 
-Remote URL ingestion is disabled by default. Enable it only with an explicit host allowlist and outbound network controls. Local storage writes use versioned records and atomic replacement; split exports are valid only when manifest.json is present. Processing may finish as partial; automation must treat that outcome as non-zero. Resource limits are configurable through ResourceLimits. Refresh the pinned dependency set with pip-compile --generate-hashes --extra dev --output-file requirements.lock pyproject.toml.
+Remote URL ingestion is disabled by default. Enable it only with an explicit host allowlist and outbound network controls. Local storage writes use versioned records and atomic replacement; split exports are valid only when manifest.json is present. Processing may finish as partial; automation must treat that outcome as non-zero. Resource limits are configurable through ResourceLimits. Refresh `requirements.lock` only from a clean Linux Python 3.10 environment (the lowest supported interpreter), then validate it across the Linux CI matrix.

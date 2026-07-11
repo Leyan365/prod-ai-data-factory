@@ -177,4 +177,12 @@ Loader behavior should remain deterministic and should not make live network cal
 
 ## Reproducible Dependencies
 
-Install the pinned test environment with python -m pip install --require-hashes -r requirements.lock. Refresh it with pip-compile --generate-hashes --extra dev --output-file requirements.lock pyproject.toml.
+`requirements.lock` is the CI lock and must be generated from a clean Linux Python 3.10 environment - the lowest supported interpreter - so every pinned distribution supports Python 3.10-3.12. Do not regenerate it under a newer interpreter and assume backward compatibility.
+
+The reference refresh command is:
+
+```bash
+docker run --rm -v "$PWD:/work" -w /work python:3.10-slim sh -c "pip install pip-tools && pip-compile --generate-hashes --extra dev --output-file requirements.lock pyproject.toml"
+```
+
+Validate the generated lock with `python -m pip install --dry-run --ignore-installed --require-hashes -r requirements.lock` on Python 3.10 before committing; the GitHub Actions matrix is the Linux validation for Python 3.10, 3.11, and 3.12.

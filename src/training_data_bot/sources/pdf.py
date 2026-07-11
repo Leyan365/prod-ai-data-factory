@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import shutil
 from pathlib import Path
 from typing import Union, Optional
 
@@ -67,12 +68,16 @@ class PDFLoader(BaseLoader):
         def _process():
             try:
                 import fitz  # PyMuPDF
-                import pymupdf4llm  # High-level LLM wrapper
             except ImportError as exc:
                 raise DocumentLoadError(
                     "Optional dependencies missing for PDF loading: pymupdf and pymupdf4llm. "
                     "Install them with 'pip install pymupdf pymupdf4llm'."
                 ) from exc
+
+            try:
+                import pymupdf4llm  # High-level LLM wrapper
+            except ImportError:
+                pymupdf4llm = None
 
             try:
                 with fitz.open(path) as source_pdf:
@@ -83,21 +88,54 @@ class PDFLoader(BaseLoader):
             except Exception as exc:
                 raise DocumentLoadError(f"Malformed or unreadable PDF file: {path}") from exc
 
-            # 1. Primary Attempt: Markdown extraction (best for LLMs)
-            # This handles tables, headers, and lists automatically.
-            try:
-                md_content = pymupdf4llm.to_markdown(str(path))
-            except Exception as exc:
-                raise DocumentLoadError(f"Malformed or unreadable PDF file: {path}") from exc
-            
-            # 2. Heuristic Check: Is the extraction suspiciously empty? (Likely a scan)
-            if len(md_content.strip()) < 50:
-                logger.info(f"Low text yield for {path.name}. Attempting OCR fallback...")
-                return self._ocr_fallback(path)
+            # 1. Primary attempt: layout-aware Markdown extraction when available.
+            md_content = ""
+            if pymupdf4llm is not None:
+                try:
+                    md_content = pymupdf4llm.to_markdown(str(path)) or ""
+                except Exception as exc:
+                    logger.warning("pymupdf4llm extraction failed for %s: %s", path.name, exc)
+            if md_content.strip():
+                return md_content
 
-            return md_content
+            # 2. Text PDFs can still be extracted directly by PyMuPDF when the
+            # high-level converter returns no usable text.
+            try:
+                direct_text = self._direct_text_extraction(path, fitz)
+            except Exception as exc:
+                logger.warning("Direct PyMuPDF extraction failed for %s: %s", path.name, exc)
+                direct_text = ""
+            if direct_text.strip():
+                return direct_text
+
+            # 3. OCR is only attempted when both text paths are empty and the
+            # host actually provides Tesseract support.
+            if self._ocr_available():
+                ocr_content = self._ocr_fallback(path)
+                if ocr_content.strip():
+                    return ocr_content
+
+            raise DocumentLoadError(
+                "PDF contains no extractable text; OCR/Tesseract is required for image-only PDFs"
+            )
 
         return await asyncio.to_thread(_process)
+
+    @staticmethod
+    def _direct_text_extraction(path: Path, fitz_module) -> str:
+        """Extract page text directly without requiring OCR or layout tooling."""
+        with fitz_module.open(path) as source_pdf:
+            return "\n\n".join(
+                text.strip()
+                for page in source_pdf
+                if (text := page.get_text("text", sort=True)).strip()
+            )
+
+    @staticmethod
+    def _ocr_available() -> bool:
+        """Return whether the local OCR executable is available."""
+        return shutil.which("tesseract") is not None
+
 
     def _ocr_fallback(self, path: Path) -> str:
         """Fallback method using PyMuPDF's integrated Tesseract support."""

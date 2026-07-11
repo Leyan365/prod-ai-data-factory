@@ -160,6 +160,42 @@ def test_pdf_success_skipped_without_optional_dependencies(workspace_tmp):
     assert "Hello from PDF loader" in doc.content
 
 
+def test_pdf_empty_markdown_falls_back_to_direct_pymupdf_text(workspace_tmp, monkeypatch):
+    if importlib.util.find_spec("fitz") is None or importlib.util.find_spec("pymupdf4llm") is None:
+        pytest.skip("PDF dependencies are not installed")
+    import fitz
+    import pymupdf4llm
+
+    path = workspace_tmp / "direct-text.pdf"
+    pdf = fitz.open()
+    page = pdf.new_page()
+    page.insert_text((72, 72), "Direct PyMuPDF text fallback")
+    pdf.save(path)
+    pdf.close()
+    monkeypatch.setattr(pymupdf4llm, "to_markdown", lambda *args, **kwargs: "")
+
+    doc = run(PDFLoader().load_single(path))
+
+    assert "Direct PyMuPDF text fallback" in doc.content
+
+
+def test_pdf_empty_text_paths_require_ocr_when_unavailable(workspace_tmp, monkeypatch):
+    if importlib.util.find_spec("fitz") is None or importlib.util.find_spec("pymupdf4llm") is None:
+        pytest.skip("PDF dependencies are not installed")
+    import fitz
+    import pymupdf4llm
+
+    path = workspace_tmp / "image-only.pdf"
+    pdf = fitz.open()
+    pdf.new_page()
+    pdf.save(path)
+    pdf.close()
+    monkeypatch.setattr(pymupdf4llm, "to_markdown", lambda *args, **kwargs: " ")
+    monkeypatch.setattr(PDFLoader, "_ocr_available", staticmethod(lambda: False))
+
+    with pytest.raises(DocumentLoadError, match="OCR/Tesseract is required"):
+        run(PDFLoader().load_single(path))
+
 def test_pdf_dependency_error_names_required_packages(workspace_tmp, monkeypatch):
     loader = PDFLoader()
     path = write(workspace_tmp / "sample.pdf", "%PDF-1.4\n")
