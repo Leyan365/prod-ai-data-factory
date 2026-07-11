@@ -19,7 +19,7 @@ class UnifiedLoader(BaseLoader):
     (file, URL, directory) and routes the task to the appropriate sub-loader.
     """
     
-    def __init__(self, decodo_client=None):
+    def __init__(self, decodo_client=None, remote_fetch_policy=None):
         super().__init__()
         self.logger = get_logger("loader.UnifiedLoader")
 
@@ -29,12 +29,12 @@ class UnifiedLoader(BaseLoader):
 
         if decodo_client:
             # Use shared DecodoClient instance for better resource management
-            self.web_loader = WebLoader(use_decodo=True)
+            self.web_loader = WebLoader(use_decodo=True, remote_fetch_policy=remote_fetch_policy)
             self.web_loader.decodo_client = decodo_client
             self.web_loader.use_decodo = True
             self.logger.info("UnifiedLoader using shared Decodo client")
         else:
-            self.web_loader = WebLoader()
+            self.web_loader = WebLoader(remote_fetch_policy=remote_fetch_policy)
 
         # List of all formats we can handle (excluding DocumentType.URL for file path checks)
         self.supported_formats = [

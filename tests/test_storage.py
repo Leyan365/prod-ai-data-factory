@@ -3,12 +3,15 @@
 import asyncio
 import csv
 import json
+import time
+from pathlib import Path
+from concurrent.futures import ThreadPoolExecutor
 from uuid import uuid4
 
 import pytest
 
 from training_data_bot.bot import TrainingDataBot
-from training_data_bot.core.exceptions import ExportError, StorageError
+from training_data_bot.core.exceptions import CleanupError, ExportError, StorageError
 from training_data_bot.core.models import (
     Dataset,
     Document,
@@ -20,7 +23,7 @@ from training_data_bot.core.models import (
     TaskType,
     TrainingExample,
 )
-from training_data_bot.storage import DatabaseManager, DatasetExporter
+from training_data_bot.storage import DatabaseManager, DatasetExporter, _InterProcessLock
 
 
 def run(coro):
@@ -290,12 +293,13 @@ def test_database_manager_missing_and_malformed_records_raise_storage_error(work
     with pytest.raises(StorageError, match="not found"):
         run(manager.load_dataset(uuid4()))
 
-    malformed_path = workspace_tmp / "storage" / "datasets" / "malformed.json"
+    malformed_id = uuid4()
+    malformed_path = workspace_tmp / "storage" / "datasets" / f"{malformed_id}.json"
     malformed_path.parent.mkdir(parents=True)
     malformed_path.write_text("{not json", encoding="utf-8")
 
     with pytest.raises(StorageError, match="malformed"):
-        run(manager.load_dataset("malformed"))
+        run(manager.load_dataset(malformed_id))
 
 
 class StaticProvider:
@@ -384,3 +388,108 @@ def test_training_bot_export_dataset_persists_export_metadata(workspace_tmp):
     assert loaded.export_path == output_path
     assert loaded.export_format == ExportFormat.JSONL
     assert loaded.id in bot.datasets
+
+
+def test_split_manifest_detects_tampering(workspace_tmp):
+    dataset = make_dataset(2)
+    package = run(DatasetExporter().export_dataset(dataset, workspace_tmp / "package", split_data=True))
+    manifest = DatasetExporter.verify_split_package(package)
+    assert manifest["splits"]
+    target = package / manifest["splits"][0]["file"]
+    target.write_text("tampered", encoding="utf-8")
+    with pytest.raises(ExportError, match="mismatch"):
+        DatasetExporter.verify_split_package(package)
+
+
+def test_split_manifest_rejects_unexpected_files(workspace_tmp):
+    package = run(DatasetExporter().export_dataset(make_dataset(2), workspace_tmp / "package", split_data=True))
+    (package / "unexpected.txt").write_text("rogue", encoding="utf-8")
+    with pytest.raises(ExportError, match="unexpected files"):
+        DatasetExporter.verify_split_package(package)
+
+
+def test_split_manifest_rejects_deleted_split(workspace_tmp):
+    package = run(DatasetExporter().export_dataset(make_dataset(2), workspace_tmp / "package", split_data=True))
+    manifest = json.loads((package / "manifest.json").read_text(encoding="utf-8"))
+    (package / manifest["splits"][0]["file"]).unlink()
+    with pytest.raises(ExportError, match="missing"):
+        DatasetExporter.verify_split_package(package)
+
+
+def test_export_file_work_runs_off_event_loop(workspace_tmp, monkeypatch):
+    exporter = DatasetExporter()
+    original = exporter._export_dataset_sync
+    def slow_export(*args, **kwargs):
+        time.sleep(0.08)
+        return original(*args, **kwargs)
+    monkeypatch.setattr(exporter, "_export_dataset_sync", slow_export)
+    async def scenario():
+        ticks = 0
+        task = asyncio.create_task(exporter.export_dataset(make_dataset(1), workspace_tmp / "responsive.jsonl", split_data=False))
+        while not task.done():
+            ticks += 1
+            await asyncio.sleep(0.005)
+        await task
+        return ticks
+    assert run(scenario()) > 3
+
+
+def test_cleanup_aggregates_resource_failures(workspace_tmp, monkeypatch):
+    bot = TrainingDataBot(config={"storage_dir": workspace_tmp / "storage"})
+    async def fail_db(): raise RuntimeError("db secret failure")
+    async def fail_web(): raise RuntimeError("web failure")
+    async def fail_ai(): raise RuntimeError("ai failure")
+    monkeypatch.setattr(bot.db_manager, "close", fail_db)
+    monkeypatch.setattr(bot.loader.web_loader, "close", fail_web)
+    monkeypatch.setattr(bot.ai_client, "close", fail_ai)
+    with pytest.raises(CleanupError) as exc:
+        run(bot.cleanup())
+    assert "db secret failure" in str(exc.value)
+    assert "web failure" in str(exc.value)
+    assert "ai failure" in str(exc.value)
+
+
+def test_lock_contention_times_out_without_corrupting_record(workspace_tmp):
+    record = workspace_tmp / "storage" / "datasets" / "record.json"
+    record.parent.mkdir(parents=True)
+    with _InterProcessLock(record, timeout=0.2):
+        with pytest.raises(StorageError, match="Timed out waiting for write lock"):
+            with _InterProcessLock(record, timeout=0.05):
+                pass
+
+
+def test_concurrent_record_writers_leave_a_valid_record(workspace_tmp):
+    manager = DatabaseManager(workspace_tmp / "storage")
+    dataset = make_dataset(1)
+    first = dataset.model_copy(deep=True) if hasattr(dataset, "model_copy") else dataset.copy(deep=True)
+    second = dataset.model_copy(deep=True) if hasattr(dataset, "model_copy") else dataset.copy(deep=True)
+    first.description = "first writer"
+    second.description = "second writer"
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        futures = [pool.submit(run, manager.save_dataset(candidate)) for candidate in (first, second)]
+        [future.result() for future in futures]
+    loaded = run(manager.load_dataset(dataset.id))
+    assert loaded.description in {"first writer", "second writer"}
+    assert not list((workspace_tmp / "storage" / "datasets").glob("*.tmp"))
+
+
+def test_interrupted_split_publication_restores_previous_package(workspace_tmp, monkeypatch):
+    import training_data_bot.storage as storage_module
+    exporter = DatasetExporter()
+    package = run(exporter.export_dataset(make_dataset(2), workspace_tmp / "package", split_data=True))
+    original_manifest = (package / "manifest.json").read_text(encoding="utf-8")
+    real_replace = storage_module.os.replace
+
+    def fail_publish(source, destination):
+        source_path, destination_path = Path(source), Path(destination)
+        if source_path.name.startswith(".package.staging-") and destination_path == package:
+            raise OSError("simulated publication interruption")
+        return real_replace(source, destination)
+
+    monkeypatch.setattr(storage_module.os, "replace", fail_publish)
+    with pytest.raises(OSError, match="simulated publication interruption"):
+        run(exporter.export_dataset(make_dataset(3), workspace_tmp / "package", split_data=True))
+    assert (package / "manifest.json").read_text(encoding="utf-8") == original_manifest
+    DatasetExporter.verify_split_package(package)
+    assert not list(workspace_tmp.glob(".package.staging-*"))
+    assert not list(workspace_tmp.glob(".package.backup-*"))

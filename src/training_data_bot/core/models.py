@@ -190,6 +190,7 @@ class ProcessingStatus(str, Enum):
     COMPLETED = "completed"
     FAILED = "failed"
     CANCELLED = "cancelled"
+    PARTIAL = "partial"
 
 
 class ExportFormat(str, Enum):
@@ -389,3 +390,5 @@ class ProcessingJob(BaseEntity):
     output_data: Dict[str, Any] = Field(default_factory=dict)
     error_message: Optional[str] = None
     raw_output: Optional[Dict[str, Any]] = None
+    failed_sources: List[Dict[str, Any]] = Field(default_factory=list)
+    failure_summary: Optional[str] = None

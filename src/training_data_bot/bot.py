@@ -4,8 +4,8 @@ from typing import Dict, List, Optional, Union, Any
 from uuid import UUID
 
 from .core.config import settings
-from .core.logging import get_logger, LogContext
-from .core.exceptions import TrainingDataBotError, ConfigurationError
+from .core.logging import get_logger, LogContext, redact_log_value
+from .core.exceptions import TrainingDataBotError, ConfigurationError, CleanupError, ExportError
 from .core.models import ( # Corrected import path (was 'core.models' which is relative to the current file not the package root)
     Document,
     Dataset,
@@ -56,8 +56,8 @@ class TrainingDataBot:
 
         """Initialize all bot components."""
         try:
-            self.loader = UnifiedLoader()
-            self.decodo_client = DecodoClient()
+            self.loader = UnifiedLoader(remote_fetch_policy=self.config.get("remote_fetch_policy"))
+            self.decodo_client = self.loader.web_loader.decodo_client
             self.ai_client = AIClient()
             self.task_manager = TaskManager()
             self.preprocessor = TextPreprocessor()
@@ -130,6 +130,9 @@ class TrainingDataBot:
 
                 if not documents:
                     raise TrainingDataBotError("No documents to process")
+                run_bytes = sum(max(0, getattr(document, "size", 0)) for document in documents)
+                if run_bytes > settings.resource_limits.max_run_bytes:
+                    raise TrainingDataBotError("Input documents exceed configured run size limit")
                 
                 # use default task types if none specified
                 if task_types is None:
@@ -139,7 +142,7 @@ class TrainingDataBot:
                 job = ProcessingJob(
                     name = f"Process {len(documents)} documents",
                     job_type = "document_processing",
-                    total_items = len(documents) * len(task_types),
+                    total_items = 0,
                     input_data = {
                         "document_count": len(documents),
                         "task_types": [t.value for t in task_types],
@@ -158,6 +161,7 @@ class TrainingDataBot:
                 for doc in documents:
                     # Process document (chunking, cleaning)
                     chunks = await self.preprocessor.process_documents(doc)
+                    job.total_items += len(chunks) * len(task_types)
 
                     # process each chunk with each task type
                     for task_type in task_types:
@@ -200,6 +204,8 @@ class TrainingDataBot:
                             except Exception as e:
                                 self.logger.error(f"Failed to process chunk: {e}") # <- Fix typo 'failed'
                                 job.failed_items += 1
+                                if len(job.failed_sources) < 100:
+                                    job.failed_sources.append({"document_id": str(doc.id), "chunk_id": str(chunk.id), "task_type": getattr(task_type, "value", str(task_type)), "error": str(e)[:500]})
                                 continue
 
 
@@ -208,16 +214,27 @@ class TrainingDataBot:
                     name = f"Generated Dataset {len(self.datasets) + 1}",
                     description = f"Dataset generated from {len(documents)} document", # <- Added missing comma
                     examples = all_examples, # <- Fix typo 'all_exmaples'
+                    metadata={"processing_job_id": str(job.id)},
                 )
 
                 # Store dataset
                 self.datasets[dataset.id] = dataset
 
-                # Update job status
-                job.status = ProcessingStatus.COMPLETED # Corrected capitalization
+                # Update job status truthfully.
+                if job.failed_items == 0:
+                    job.status = ProcessingStatus.COMPLETED
+                elif all_examples:
+                    job.status = ProcessingStatus.PARTIAL
+                else:
+                    job.status = ProcessingStatus.FAILED
+                job.failure_summary = (
+                    f"{job.failed_items} of {job.total_items} task executions failed"
+                    if job.failed_items else None
+                )
+                dataset.metadata["processing_status"] = getattr(job.status, "value", job.status)
                 job.output_data = {
                     "dataset_id": str(dataset.id),
-                    "examples_generated": len(all_examples), # <- Fix typo 'all_exmaples'
+                    "examples_generated": len(all_examples),
                     "quality_filtered": quality_filter,
                 }
                 await self.db_manager.save_dataset(dataset)
@@ -278,6 +295,11 @@ class TrainingDataBot:
         
         with LogContext("dataset_export", dataset_id = str(dataset.id)):
             try:
+                quality_gate = self.config.get("quality_gate", settings.quality_gate)
+                if quality_gate.enforce_aggregate and not quality_gate.allow_low_quality_export:
+                    report = await self.evaluator.evaluate_dataset(dataset)
+                    if not report.passed:
+                        raise ExportError("Dataset failed the aggregate quality gate: " + "; ".join(report.reasons[:3]))
                 exported_path = await self.exporter.export_dataset(
                     dataset = dataset,
                     output_path = Path(output_path),
@@ -373,18 +395,19 @@ class TrainingDataBot:
 # Cleanup
 
     async def cleanup(self):
-        """Cleanup resources and close connections."""
-        try:
-            await self.db_manager.close()
-            # Conditional calls to close() based on method existence
-            if hasattr(self.decodo_client, 'close'):
-                await self.decodo_client.close()
-            if hasattr(self.ai_client, 'close'):
-                await self.ai_client.close()
-            self.logger.info("Bot cleanup completed")
-
-        except Exception as e:
-            self.logger.error(f"Error during cleanup: {e}") # <- Fix typo 'cleanuo'
+        """Close every owned resource and report any cleanup failure."""
+        errors = []
+        for resource in (self.db_manager, self.loader.web_loader, self.ai_client):
+            close = getattr(resource, "close", None)
+            if close is None:
+                continue
+            try:
+                await close()
+            except Exception as exc:
+                errors.append(redact_log_value(exc))
+        if errors:
+            raise CleanupError("Failed to clean up one or more resources", detail="; ".join(errors))
+        self.logger.info("Bot cleanup completed")
 
 
 # Context Manager

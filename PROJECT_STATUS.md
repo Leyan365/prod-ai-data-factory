@@ -17,7 +17,7 @@ This project is being built in tutorial-aligned phases. The current implementati
 | Cleanup: remove obsolete notes file | Completed | `8cbc110` |
 | Phase 8: documentation refresh after export and storage phases | Completed | `e394986` |
 | Phase 9: Pydantic v2 and core model cleanup | Completed | `e6b34e4` |
-| Phase 10: packaging, CLI, and project metadata cleanup | Completed in working tree | Pending commit |
+| Phase 10: packaging, CLI, and project metadata cleanup | Completed | 69f6dec |
 
 ## Test Status
 

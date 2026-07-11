@@ -2,7 +2,7 @@
 Domain exceptions for the training data bot.
 """
 
-from typing import Iterable, Optional
+from typing import Any, Dict, Iterable, List, Optional
 
 
 class TrainingDataBotError(Exception):
@@ -38,6 +38,10 @@ class StorageError(TrainingDataBotError):
     """Raised when local persistence reads or writes fail."""
 
 
+class CleanupError(TrainingDataBotError):
+    """Raised when one or more owned resources cannot be closed."""
+
+
 class AIClientError(TrainingDataBotError):
     """Raised when an AI provider call fails."""
 
@@ -71,6 +75,15 @@ class DocumentLoadError(TrainingDataBotError):
 
 class DocumentLoadingError(DocumentLoadError):
     """Alias-style subclass used by the unified and web loaders."""
+
+
+class BatchDocumentLoadError(DocumentLoadingError):
+    """Raised when a batch cannot be loaded completely."""
+
+    def __init__(self, message: str, *, failures: List[Dict[str, Any]], loaded_count: int = 0):
+        self.failures = failures
+        self.loaded_count = loaded_count
+        super().__init__(message, detail=f"loaded={loaded_count}, failed={len(failures)}")
 
 
 class UnsupportedFormatError(DocumentLoadError):

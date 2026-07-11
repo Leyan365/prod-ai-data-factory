@@ -13,7 +13,7 @@ __description__ = "Enterprise-grade training data curation bot for LLM fine-tuni
 
 
 # Core imports for easy access
-from .core.config import settings
+from .core.config import QualityGatePolicy, RemoteFetchPolicy, ResourceLimits, settings
 from .core.logging import get_logger
 from .core.exceptions import TrainingDataBotError
 
@@ -43,6 +43,9 @@ __all__ = [
     # Core
     "TrainingDataBot",
     "settings",
+    "ResourceLimits",
+    "RemoteFetchPolicy",
+    "QualityGatePolicy",
     "get_logger",
     "TrainingDataBotError",
 

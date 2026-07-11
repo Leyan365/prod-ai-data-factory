@@ -5,8 +5,8 @@ from pathlib import Path
 
 
 from ..core.models import Document, DocumentType
-from ..core.exceptions import DocumentLoadError, UnsupportedFormatError
-from ..core.logging import get_logger, LogContext
+from ..core.exceptions import BatchDocumentLoadError, DocumentLoadError, UnsupportedFormatError
+from ..core.logging import get_logger, redact_log_value, LogContext
 
 
 class BaseLoader(ABC):
@@ -49,6 +49,7 @@ class BaseLoader(ABC):
             self, 
             sources: List[Union[str, Path]], # FIX: Added type hints
             max_workers=4,
+            allow_partial: bool = False,
             **kwargs
         ) -> list[Document]:
         """
@@ -72,7 +73,7 @@ class BaseLoader(ABC):
                         return await self.load_single(source, **kwargs) # Passed kwargs
                     except Exception as e:
                         # FIX: Improved error logging to include source and exception
-                        self.logger.error(f"Failed to load {source}: {e}", exc_info=True)
+                        self.logger.error("Failed to load %s: %s", redact_log_value(source), redact_log_value(e))
                         return None
         
             tasks = [load_with_semaphore(source) for source in sources]
@@ -82,14 +83,15 @@ class BaseLoader(ABC):
 
             # Filter out failed loads and exceptions
             documents = []
+            failures = []
             for i, result in enumerate(results):
                 if isinstance(result, Document):
                     documents.append(result)
-                elif isinstance(result, Exception):
-                    # FIX: Improved error logging to include source and exception
-                    self.logger.error(f"Error loading {sources[i]} due to exception: {result}", exc_info=True)
-                # None results (failed loads) are skipped, which is correct
-
+                else:
+                    error = result if isinstance(result, Exception) else "load failed"
+                    failures.append({"source": str(sources[i]), "error": str(error)[:500]})
+            if failures and not allow_partial:
+                raise BatchDocumentLoadError("One or more sources failed to load", failures=failures, loaded_count=len(documents))
             self.logger.info(f"successfully loaded {len(documents)} out of {len(sources)} sources.")
             return documents
         
@@ -114,7 +116,7 @@ class BaseLoader(ABC):
                 document = await self.load_single(source, **kwargs)
                 yield document
             except Exception as e:
-                self.logger.error(f"Failed to load {source}: {e}", exc_info=True) # Added exception info
+                self.logger.error("Failed to load %s: %s", redact_log_value(source), redact_log_value(e)) # Added exception info
                 continue
 
     def supports_format(self, doc_type: DocumentType) -> bool:

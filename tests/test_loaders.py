@@ -3,11 +3,14 @@
 import asyncio
 import builtins
 import importlib.util
+from dataclasses import replace
 from pathlib import Path
 
 import pytest
 
 from training_data_bot.core.exceptions import DocumentLoadError, DocumentLoadingError
+from training_data_bot.core.config import RemoteFetchPolicy
+from training_data_bot.decodo import DecodoClient
 from training_data_bot.core.models import DocumentType
 from training_data_bot.sources.documents import DocumentLoader
 from training_data_bot.sources.pdf import PDFLoader
@@ -190,7 +193,11 @@ def test_malformed_pdf_raises_document_load_error_when_dependencies_exist(worksp
 
 
 def test_url_fallback_uses_mocked_fetch_without_network(monkeypatch):
-    loader = WebLoader(use_decodo=False)
+    loader = WebLoader(
+        use_decodo=False,
+        remote_fetch_policy=RemoteFetchPolicy(enabled=True, allowed_hosts=frozenset({"example.test"})),
+    )
+    monkeypatch.setattr("training_data_bot.sources.web.socket.getaddrinfo", lambda *args, **kwargs: [(None, None, None, None, ("93.184.216.34", 443))])
 
     async def fake_fetch(url):
         return "<html><title>Example Title</title><body>Example body</body></html>", "mock"
@@ -275,3 +282,114 @@ def test_unsupported_format_and_missing_file_raise_domain_errors(workspace_tmp):
 
     assert "not supported" in str(unsupported_exc.value)
     assert "Failed to load document" in str(missing_exc.value)
+
+
+def test_remote_policy_rejects_private_address(monkeypatch):
+    loader = WebLoader(
+        use_decodo=False,
+        remote_fetch_policy=RemoteFetchPolicy(enabled=True, allowed_hosts=frozenset({"example.test"})),
+    )
+    monkeypatch.setattr(
+        "training_data_bot.sources.web.socket.getaddrinfo",
+        lambda *args, **kwargs: [(None, None, None, None, ("127.0.0.1", 443))],
+    )
+    with pytest.raises(DocumentLoadingError, match="non-public"):
+        run(loader.load_single("https://example.test/private"))
+
+
+def test_direct_decodo_call_fails_closed_by_default():
+    with pytest.raises(DocumentLoadingError, match="disabled by policy"):
+        run(DecodoClient().scrape_url("https://example.test/?token=secret"))
+
+
+def test_direct_decodo_rejects_redirects_and_private_hosts(monkeypatch):
+    policy = RemoteFetchPolicy(enabled=True, allowed_hosts=frozenset({"example.test"}))
+    client = DecodoClient(remote_fetch_policy=policy)
+    monkeypatch.setattr("training_data_bot.decodo.socket.getaddrinfo", lambda *a, **k: [(None, None, None, None, ("93.184.216.34", 443))])
+    class Response:
+        status_code = 302
+        headers = {"location": "https://example.test/next"}
+        encoding = "utf-8"
+        async def __aenter__(self): return self
+        async def __aexit__(self, *a): return None
+        async def aiter_bytes(self): yield b""
+        def raise_for_status(self): return None
+    class FakeClient:
+        def stream(self, *a, **k): return Response()
+        async def aclose(self): return None
+    client._client = FakeClient()
+    with pytest.raises(DocumentLoadingError, match="redirects are disabled"):
+        run(client.scrape_url("https://example.test/start"))
+
+
+def test_log_redaction_removes_query_credentials_and_secrets():
+    from training_data_bot.core.logging import redact_log_value
+    value = "GET https://user:pass@example.test/path?api_key=abc#fragment authorization=Bearer-secret source=PRIVATE"
+    redacted = redact_log_value(value)
+    assert "abc" not in redacted and "pass" not in redacted and "Bearer-secret" not in redacted
+    assert "?" not in redacted and "#fragment" not in redacted
+
+
+class _StreamResponse:
+    def __init__(self, status_code, body=b"", headers=None):
+        self.status_code = status_code
+        self._body = body
+        self.headers = headers or {}
+        self.encoding = "utf-8"
+    async def __aenter__(self): return self
+    async def __aexit__(self, *args): return None
+    async def aiter_bytes(self):
+        yield self._body
+    def raise_for_status(self):
+        if self.status_code >= 400:
+            raise RuntimeError("status")
+
+
+def test_web_loader_rejects_excessive_redirect_chain(monkeypatch):
+    import httpx
+    loader = WebLoader(use_decodo=False, remote_fetch_policy=RemoteFetchPolicy(enabled=True, allowed_hosts=frozenset({"example.test"})))
+    monkeypatch.setattr("training_data_bot.sources.web.socket.getaddrinfo", lambda *a, **k: [(None, None, None, None, ("93.184.216.34", 443))])
+    class Client:
+        def __init__(self, *a, **k): pass
+        async def __aenter__(self): return self
+        async def __aexit__(self, *a): return None
+        def stream(self, *a, **k): return _StreamResponse(302, headers={"location": "https://example.test/loop"})
+    monkeypatch.setattr(httpx, "AsyncClient", Client)
+    with pytest.raises(DocumentLoadingError, match="Redirect limit"):
+        run(loader._fetch_with_fallback("https://example.test/loop"))
+
+
+def test_web_loader_enforces_streamed_response_limit(monkeypatch):
+    import httpx
+    import training_data_bot.sources.web as web_module
+    limits = replace(web_module.settings.resource_limits, max_remote_bytes=4)
+    monkeypatch.setattr(web_module, "settings", replace(web_module.settings, resource_limits=limits))
+    loader = WebLoader(use_decodo=False, remote_fetch_policy=RemoteFetchPolicy(enabled=True, allowed_hosts=frozenset({"example.test"})))
+    monkeypatch.setattr("training_data_bot.sources.web.socket.getaddrinfo", lambda *a, **k: [(None, None, None, None, ("93.184.216.34", 443))])
+    class Client:
+        def __init__(self, *a, **k): pass
+        async def __aenter__(self): return self
+        async def __aexit__(self, *a): return None
+        def stream(self, *a, **k): return _StreamResponse(200, body=b"12345")
+    monkeypatch.setattr(httpx, "AsyncClient", Client)
+    with pytest.raises(DocumentLoadingError, match="size limit"):
+        run(loader._fetch_with_fallback("https://example.test/large"))
+
+
+def test_pdf_page_limit_rejects_before_extraction(workspace_tmp, monkeypatch):
+    if importlib.util.find_spec("fitz") is None or importlib.util.find_spec("pymupdf4llm") is None:
+        pytest.skip("PDF dependencies are not installed")
+    import fitz
+    from dataclasses import replace
+    import training_data_bot.sources.pdf as pdf_module
+
+    path = workspace_tmp / "two-pages.pdf"
+    pdf = fitz.open()
+    pdf.new_page()
+    pdf.new_page()
+    pdf.save(path)
+    pdf.close()
+    limits = replace(pdf_module.settings.resource_limits, max_pdf_pages=1)
+    monkeypatch.setattr(pdf_module, "settings", replace(pdf_module.settings, resource_limits=limits))
+    with pytest.raises(DocumentLoadError, match="page limit"):
+        run(PDFLoader().load_single(path))

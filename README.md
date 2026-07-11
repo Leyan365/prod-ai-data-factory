@@ -149,3 +149,7 @@ training-data-bot process sample.txt --output dataset.jsonl --format jsonl --pro
 - `ExportFormat.PARQUET`, `ExportFormat.HUGGINGFACE`, and `ExportFormat.OPENAI` are enum placeholders.
 - `TextChunk.embeddings` and `TextChunk.topics` fields exist, but no embeddings or topic extraction pipeline is implemented.
 - A fallback local `BaseModel` remains for no-Pydantic environments and may drift from Pydantic behavior.
+
+## Production Hardening
+
+Remote URL ingestion is disabled by default. Enable it only with an explicit host allowlist and outbound network controls. Local storage writes use versioned records and atomic replacement; split exports are valid only when manifest.json is present. Processing may finish as partial; automation must treat that outcome as non-zero. Resource limits are configurable through ResourceLimits. Refresh the pinned dependency set with pip-compile --generate-hashes --extra dev --output-file requirements.lock pyproject.toml.

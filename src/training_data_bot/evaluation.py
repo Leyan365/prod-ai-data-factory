@@ -111,7 +111,7 @@ class QualityEvaluator:
                 warnings.extend(report.warnings)
 
         if diversity_score < self.min_metric_score:
-            warnings.append("Dataset contains duplicate or near-duplicate outputs")
+            issues.append("Dataset contains duplicate or near-duplicate outputs")
 
         overall_score = self._overall_score(metric_scores.values())
         if overall_score < self.min_overall_score:

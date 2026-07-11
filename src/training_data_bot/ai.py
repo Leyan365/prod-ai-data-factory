@@ -5,6 +5,7 @@ AI client abstraction and provider implementations.
 import asyncio
 from dataclasses import dataclass
 import os
+import random
 from typing import Any, Dict, Optional, Protocol
 
 from .core.config import settings
@@ -70,9 +71,9 @@ class GeminiProvider:
             f"{self.model}:generateContent"
         )
         payload = {"contents": [{"parts": [{"text": prompt}]}]}
-        params = {"key": self.api_key}
+        headers = {"x-goog-api-key": self.api_key}
 
-        response = await client.post(url, params=params, json=payload, timeout=timeout)
+        response = await client.post(url, headers=headers, json=payload, timeout=timeout)
         response.raise_for_status()
         data = response.json()
         text = self._extract_text(data)
@@ -137,20 +138,35 @@ class AIClient:
         attempts = self.max_retries + 1
         last_error: Optional[BaseException] = None
 
-        for _ in range(attempts):
+        for attempt in range(attempts):
             try:
                 return await asyncio.wait_for(
                     self.provider.generate(prompt, timeout=effective_timeout),
                     timeout=effective_timeout,
                 )
-            except asyncio.TimeoutError as exc:
-                last_error = exc
             except AIProviderConfigurationError:
                 raise
             except Exception as exc:
                 last_error = exc
+                if attempt + 1 >= attempts or not self._is_retryable(exc):
+                    break
+                await asyncio.sleep(min(2.0, 0.1 * (2 ** attempt)) + random.uniform(0.0, 0.05))
 
         raise AIClientError("AI provider failed after retries", cause=last_error)
+
+    @staticmethod
+    def _is_retryable(exc: BaseException) -> bool:
+        if isinstance(exc, asyncio.TimeoutError):
+            return True
+        try:
+            import httpx
+        except ImportError:
+            return False
+        if isinstance(exc, httpx.TransportError):
+            return True
+        if isinstance(exc, httpx.HTTPStatusError):
+            return exc.response.status_code == 429 or exc.response.status_code >= 500
+        return False
 
     async def close(self) -> None:
         await self.provider.close()

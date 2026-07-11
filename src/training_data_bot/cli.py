@@ -198,13 +198,14 @@ async def _handle_process(args: argparse.Namespace) -> int:
             split_data=args.split,
         )
 
-        print("process ok")
+        processing_status = dataset.metadata.get("processing_status", "completed")
+        print("process partial" if processing_status == "partial" else "process ok")
         print(f"dataset_id: {dataset.id}")
         print(f"examples: {len(dataset.examples)}")
         print(f"export_path: {export_path}")
         print(f"provider: {args.provider}")
         print(f"storage_dir: {bot.db_manager.storage_dir}")
-        return 0
+        return 1 if processing_status in {"partial", "failed"} else 0
     finally:
         await bot.cleanup()
 

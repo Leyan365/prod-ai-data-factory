@@ -8,6 +8,7 @@ from typing import Union, List
 from .base import BaseLoader 
 from ..core.models import Document, DocumentType
 from ..core.exceptions import DocumentLoadError
+from ..core.config import settings
 from ..core.logging import LogContext
 
 
@@ -52,6 +53,8 @@ class DocumentLoader(BaseLoader):
 
         if not source.exists():
             raise DocumentLoadError(f"File not found: {source}")
+        if source.stat().st_size > settings.resource_limits.max_document_bytes:
+            raise DocumentLoadError(f"Document exceeds size limit: {source}")
         
         doc_type = self.get_document_type(source)
 
@@ -182,6 +185,8 @@ class DocumentLoader(BaseLoader):
                     lines.append("")
                     
                 for row_num, row in enumerate(reader, 1):
+                    if row_num > settings.resource_limits.max_csv_rows:
+                        raise DocumentLoadError("CSV exceeds configured row limit")
                     # Added check to ensure row length matches headers
                     if headers and len(row) == len(headers):
                         row_data = [f"{header}: {value}" for header, value in zip(headers, row)]

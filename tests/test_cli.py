@@ -4,6 +4,7 @@ import json
 import re
 
 from training_data_bot.cli import main
+from training_data_bot.core.models import Dataset
 
 
 def run_cli(args):
@@ -229,3 +230,26 @@ def test_cli_default_process_does_not_require_gemini_key(workspace_tmp, capsys, 
 
     assert code == 0
     assert "provider: mock" in capsys.readouterr().out
+
+
+def test_cli_partial_processing_reports_ids_and_nonzero_status(workspace_tmp, capsys, monkeypatch):
+    source = write(workspace_tmp / "source.txt", "partial processing source")
+    output = workspace_tmp / "partial.jsonl"
+
+    class PartialBot:
+        async def load_documents(self, path): return [object()]
+        async def process_documents(self, **kwargs):
+            return Dataset(name="partial", description="partial", metadata={"processing_status": "partial"})
+        async def export_dataset(self, dataset, output_path, **kwargs):
+            output_path.write_text("", encoding="utf-8")
+            return output_path
+        async def cleanup(self): return None
+        class db_manager:
+            storage_dir = workspace_tmp / "storage"
+
+    monkeypatch.setattr("training_data_bot.cli._create_bot", lambda storage_dir: PartialBot())
+    code = run_cli(["process", str(source), "--output", str(output), "--format", "jsonl", "--storage-dir", str(workspace_tmp / "storage")])
+    captured = capsys.readouterr().out
+    assert code == 1
+    assert "process partial" in captured
+    assert "dataset_id:" in captured

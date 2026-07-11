@@ -3,6 +3,8 @@
 from datetime import timezone
 from uuid import uuid4
 
+import pytest
+
 from training_data_bot.core.models import (
     Dataset,
     Document,
@@ -95,3 +97,12 @@ def test_model_dump_json_serializes_core_types():
     assert isinstance(data["created_at"], str)
     assert data["examples"][0]["task_type"] == "summarization"
     assert '"examples"' in json_text
+
+
+def test_resource_limits_reject_invalid_configuration():
+    from training_data_bot.core.config import ResourceLimits
+
+    with pytest.raises(ValueError):
+        ResourceLimits(max_document_bytes=0)
+    with pytest.raises(ValueError):
+        ResourceLimits(max_document_bytes=10, max_remote_bytes=11)

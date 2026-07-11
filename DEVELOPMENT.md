@@ -174,3 +174,7 @@ The Gemini provider is the current reference implementation. It reads only `GEMI
 6. Add tests for success, unsupported/missing inputs, malformed inputs, optional dependency errors, and directory discovery if relevant.
 
 Loader behavior should remain deterministic and should not make live network calls in tests.
+
+## Reproducible Dependencies
+
+Install the pinned test environment with python -m pip install --require-hashes -r requirements.lock. Refresh it with pip-compile --generate-hashes --extra dev --output-file requirements.lock pyproject.toml.

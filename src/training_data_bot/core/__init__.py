@@ -1,10 +1,12 @@
 """Core package exports."""
 
-from .config import settings
+from .config import QualityGatePolicy, RemoteFetchPolicy, ResourceLimits, settings
 from .exceptions import (
     AIClientError,
     AIProviderConfigurationError,
     ConfigurationError,
+    CleanupError,
+    BatchDocumentLoadError,
     DocumentLoadError,
     DocumentLoadingError,
     ExportError,
@@ -36,6 +38,11 @@ __all__ = [
     "AIClientError",
     "AIProviderConfigurationError",
     "ConfigurationError",
+    "ResourceLimits",
+    "RemoteFetchPolicy",
+    "QualityGatePolicy",
+    "CleanupError",
+    "BatchDocumentLoadError",
     "Dataset",
     "Document",
     "DocumentLoadError",

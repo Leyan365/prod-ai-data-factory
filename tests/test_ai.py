@@ -4,6 +4,7 @@ import asyncio
 import os
 
 import pytest
+import httpx
 
 from training_data_bot.ai import AIClient, AIClientError, AIResponse, GeminiProvider, MockAIProvider
 from training_data_bot.core.exceptions import AIProviderConfigurationError
@@ -21,7 +22,7 @@ class FlakyProvider:
     async def generate(self, prompt, *, timeout=None):
         self.calls += 1
         if self.calls <= self.failures:
-            raise RuntimeError("temporary")
+            raise httpx.ConnectError("temporary")
         return AIResponse(text="ok", token_usage=3)
 
     async def close(self):
@@ -53,8 +54,8 @@ class FakeHttpClient:
         self.calls = []
         self.closed = False
 
-    async def post(self, url, *, params, json, timeout):
-        self.calls.append({"url": url, "params": params, "json": json, "timeout": timeout})
+    async def post(self, url, *, headers, json, timeout):
+        self.calls.append({"url": url, "headers": headers, "json": json, "timeout": timeout})
         return FakeResponse({"candidates": [{"content": {"parts": [{"text": "gemini text"}]}}]})
 
     async def aclose(self):
@@ -120,7 +121,7 @@ def test_gemini_provider_reads_key_from_environment_and_builds_request(monkeypat
     assert len(fake_client.calls) == 1
     call = fake_client.calls[0]
     assert call["url"].endswith("/models/gemini-test-model:generateContent")
-    assert call["params"] == {"key": "test-key"}
+    assert call["headers"] == {"x-goog-api-key": "test-key"}
     assert call["json"] == {"contents": [{"parts": [{"text": "rendered prompt"}]}]}
     assert call["timeout"] == 7
 
@@ -129,7 +130,7 @@ def test_gemini_provider_empty_response_raises(monkeypatch):
     monkeypatch.setenv("GEMINI_API_KEY", "test-key")
 
     class EmptyClient(FakeHttpClient):
-        async def post(self, url, *, params, json, timeout):
+        async def post(self, url, *, headers, json, timeout):
             return FakeResponse({"candidates": [{"content": {"parts": [{"text": ""}]}}]})
 
     with pytest.raises(AIClientError, match="empty"):

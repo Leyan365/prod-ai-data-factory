@@ -6,6 +6,7 @@ from typing import Union, Optional
 from .base import BaseLoader 
 from ..core.models import Document, DocumentType
 from ..core.exceptions import DocumentLoadError
+from ..core.config import settings
 from ..core.logging import LogContext
 
 logger = logging.getLogger(__name__)
@@ -38,6 +39,8 @@ class PDFLoader(BaseLoader):
 
         if not source.exists():
             raise DocumentLoadError(f"File not found: {source}")
+        if source.stat().st_size > settings.resource_limits.max_document_bytes:
+            raise DocumentLoadError(f"Document exceeds size limit: {source}")
         
         with LogContext("load_pdf", file=str(source)):
             try:
@@ -70,6 +73,15 @@ class PDFLoader(BaseLoader):
                     "Optional dependencies missing for PDF loading: pymupdf and pymupdf4llm. "
                     "Install them with 'pip install pymupdf pymupdf4llm'."
                 ) from exc
+
+            try:
+                with fitz.open(path) as source_pdf:
+                    if len(source_pdf) > settings.resource_limits.max_pdf_pages:
+                        raise DocumentLoadError("PDF exceeds configured page limit")
+            except DocumentLoadError:
+                raise
+            except Exception as exc:
+                raise DocumentLoadError(f"Malformed or unreadable PDF file: {path}") from exc
 
             # 1. Primary Attempt: Markdown extraction (best for LLMs)
             # This handles tables, headers, and lists automatically.
