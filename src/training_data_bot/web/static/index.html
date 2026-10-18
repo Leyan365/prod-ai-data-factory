@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Training Data Factory</title>
+  <link rel="stylesheet" href="/static/style.css?v=5">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><rect width=%22100%22 height=%22100%22 rx=%2222%22 fill=%22%23111%22/><text x=%2250%22 y=%2268%22 font-size=%2260%22 text-anchor=%22middle%22 fill=%22%23fff%22 font-family=%22sans-serif%22 font-weight=%22700%22>T</text></svg>">
+</head>
+<body>
+  <div class="app-container">
+    <header class="glass-panel app-header">
+      <div class="brand-wrapper">
+        <div class="brand-icon">T</div>
+        <div class="brand-title">
+          <h1>Training Data Factory</h1>
+          <p>Document to dataset pipeline</p>
+        </div>
+      </div>
+      <div class="status-badges">
+        <div class="badge pulse-online">
+          <span class="dot"></span>
+          <span id="badge-status">Online</span>
+        </div>
+        <div class="badge" id="badge-provider">Provider: MOCK</div>
+        <div class="badge" id="badge-version">v0.2.0</div>
+      </div>
+    </header>
+
+    <nav class="tabs-nav">
+      <button class="tab-btn active" data-tab="tab-process">Process</button>
+      <button class="tab-btn" data-tab="tab-datasets">Datasets (<span id="datasets-count">0</span>)</button>
+      <button class="tab-btn" data-tab="tab-jobs">Jobs (<span id="jobs-count">0</span>)</button>
+    </nav>
+
+    <!-- Process -->
+    <main id="tab-process" class="tab-pane active">
+      <div class="process-grid">
+        <div class="glass-panel dropzone-container">
+          <h2 class="section-title">Documents</h2>
+          <div class="dropzone-box" id="dropzone">
+            <div class="dropzone-icon">&#8593;</div>
+            <div class="dropzone-title">Drop files here or click to browse</div>
+            <div class="dropzone-subtitle">PDF, DOCX, TXT, MD, HTML, CSV, JSON</div>
+            <input type="file" id="file-input" multiple style="display: none;" accept=".txt,.md,.pdf,.docx,.html,.htm,.json,.csv">
+          </div>
+          <div class="file-list" id="file-list"></div>
+        </div>
+
+        <div class="glass-panel config-container">
+          <h2 class="section-title" style="margin-bottom:0">Settings</h2>
+
+          <div class="form-group">
+            <label class="form-label">Tasks</label>
+            <div class="pill-options" id="tasks-group">
+              <label class="pill-option active"><input type="checkbox" value="qa" checked><span>Q&amp;A</span></label>
+              <label class="pill-option active"><input type="checkbox" value="summarization" checked><span>Summaries</span></label>
+              <label class="pill-option active"><input type="checkbox" value="classification" checked><span>Classification</span></label>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Provider</label>
+            <div class="pill-options" id="provider-group">
+              <label class="pill-option active"><input type="radio" name="provider" value="mock" checked><span>Mock (offline)</span></label>
+              <label class="pill-option"><input type="radio" name="provider" value="gemini"><span>Gemini</span></label>
+            </div>
+            <small style="color: var(--text-3); font-size: 11.5px;">Gemini needs <code>GEMINI_API_KEY</code> set on the server.</small>
+          </div>
+
+          <div class="toggle-wrapper">
+            <div class="toggle-info">
+              <h4>Quality filter</h4>
+              <p>Drop low-quality examples</p>
+            </div>
+            <label class="switch"><input type="checkbox" id="toggle-quality" checked><span class="slider"></span></label>
+          </div>
+
+          <div class="toggle-wrapper">
+            <div class="toggle-info">
+              <h4>Train / val / test split</h4>
+              <p>Write partitioned files</p>
+            </div>
+            <label class="switch"><input type="checkbox" id="toggle-split"><span class="slider"></span></label>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Format</label>
+            <div class="pill-options" id="format-group">
+              <label class="pill-option active"><input type="radio" name="format" value="jsonl" checked><span>JSONL</span></label>
+              <label class="pill-option"><input type="radio" name="format" value="csv"><span>CSV</span></label>
+            </div>
+          </div>
+
+          <button class="btn-primary" id="btn-process"><span>Run pipeline</span></button>
+        </div>
+      </div>
+
+      <div class="glass-panel progress-card" id="progress-card">
+        <div class="progress-header">
+          <h3 id="progress-title" style="font-size: 14px; font-weight: 600;">Processing</h3>
+          <span class="badge" id="progress-status-badge">Processing...</span>
+        </div>
+        <div class="progress-bar-bg"><div class="progress-bar-fill" id="progress-bar"></div></div>
+        <div class="progress-stages">
+          <span class="stage-pill active" id="stage-upload">Ingestion</span>
+          <span class="stage-pill" id="stage-chunk">Preprocessing</span>
+          <span class="stage-pill" id="stage-ai">AI tasks</span>
+          <span class="stage-pill" id="stage-eval">Quality</span>
+          <span class="stage-pill" id="stage-export">Export</span>
+        </div>
+        <p id="progress-detail" style="font-size: 13px; color: var(--text-2);"></p>
+      </div>
+
+      <div class="glass-panel results-card" id="results-card">
+        <h2 class="section-title">Results</h2>
+        <div class="stats-grid">
+          <div class="stat-item"><div class="stat-value" id="stat-examples">0</div><div class="stat-label">Examples</div></div>
+          <div class="stat-item"><div class="stat-value" id="stat-quality">100%</div><div class="stat-label">Quality filtered</div></div>
+          <div class="stat-item"><div class="stat-value" id="stat-status">Completed</div><div class="stat-label">Outcome</div></div>
+        </div>
+
+        <div class="table-container">
+          <table>
+            <thead>
+              <tr>
+                <th style="width: 120px;">Task</th>
+                <th>Input</th>
+                <th>Output</th>
+                <th style="width: 100px;">Quality</th>
+              </tr>
+            </thead>
+            <tbody id="preview-table-body"></tbody>
+          </table>
+        </div>
+
+        <div class="actions-bar">
+          <button class="btn-secondary" id="btn-download-jsonl">Download JSONL</button>
+          <button class="btn-secondary" id="btn-download-csv">Download CSV</button>
+          <button class="btn-secondary" id="btn-download-split">Download split (zip)</button>
+        </div>
+      </div>
+    </main>
+
+    <!-- Datasets -->
+    <section id="tab-datasets" class="tab-pane">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+        <h2 class="section-title" style="margin:0">Saved datasets</h2>
+        <button class="btn-secondary" id="btn-refresh-datasets">Refresh</button>
+      </div>
+      <div class="datasets-grid" id="datasets-grid"></div>
+    </section>
+
+    <!-- Jobs -->
+    <section id="tab-jobs" class="tab-pane">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+        <h2 class="section-title" style="margin:0">Job history</h2>
+        <button class="btn-secondary" id="btn-refresh-jobs">Refresh</button>
+      </div>
+      <div class="jobs-list" id="jobs-list"></div>
+    </section>
+  </div>
+
+  <script src="/static/app.js?v=2"></script>
+</body>
+</html>

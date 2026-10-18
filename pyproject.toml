@@ -24,9 +24,15 @@ dependencies = [
 dev = [
   "pytest>=8.0",
 ]
+web = [
+  "fastapi>=0.110.0",
+  "uvicorn>=0.29.0",
+  "python-multipart>=0.0.9",
+]
 
 [project.scripts]
 training-data-bot = "training_data_bot.cli:main"
+training-data-bot-web = "training_data_bot.web.app:run_server"
 
 [tool.setuptools.packages.find]
 where = ["src"]

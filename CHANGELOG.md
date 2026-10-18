@@ -17,3 +17,4 @@ Security and runtime hardening release.
 - Added direct PyMuPDF text fallback for minimal Linux environments when high-level PDF extraction returns no text.
 - Added hashed dependency locking generated from the lowest supported Python baseline.
 - Added Python 3.10-3.12 CI coverage, wheel builds, wheel installation, and CLI/version verification.
+- Added modern glassmorphic web dashboard and REST API (`training_data_bot.web`) with drag-and-drop document processing, live job tracking, dataset preview, and downloads.

@@ -74,6 +74,33 @@ training-data-bot export <dataset_id> --output .tmp\cli-demo\export.csv --format
 
 The CLI supports local files and directories for `process`, JSONL/CSV export formats, and local JSON persistence. It defaults to the offline mock AI provider and does not require credentials.
 
+## Web Interface
+
+### One-Click Launch (Windows)
+Double-click [run_web.bat](file:///d:/projects/AI/Production-Grade%20Data%20Factory/run_web.bat) in the project root. It starts the server and automatically opens your browser at `http://127.0.0.1:8765`.
+
+### Command Line Launch
+Launch the web dashboard via console script:
+
+```powershell
+training-data-bot-web
+```
+
+Or run directly via Python:
+
+```powershell
+C:\Users\USER\anaconda3\python.exe -m training_data_bot.web --port 8765
+```
+
+Open your browser at `http://127.0.0.1:8765`.
+
+Features:
+- **Glassmorphic UI**: High-contrast frosted glass cards over custom mountain evening lake background.
+- **Drag & Drop Ingestion**: Upload TXT, MD, PDF, DOCX, HTML, CSV, or JSON documents.
+- **Configurable Tasks**: QA Pairs, Summarization, and Classification with live progress tracking.
+- **Instant Preview & Download**: View curated examples and download JSONL, CSV, or split archives.
+- **Dataset & Job Explorer**: Browse and re-export persisted datasets and review historical jobs.
+
 ## Running Smoke Checks
 
 ```powershell

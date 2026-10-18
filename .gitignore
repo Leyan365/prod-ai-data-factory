@@ -10,3 +10,4 @@ Production AI Tutorial.pdf
 pytest-cache-files-*/
 __pycache__/
 *.egg-info/
+output/
