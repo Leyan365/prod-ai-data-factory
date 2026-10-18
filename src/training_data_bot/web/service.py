@@ -87,6 +87,7 @@ class WebService:
         files: List[Tuple[str, bytes]],
         task_types: List[str],
         provider: str = "mock",
+        model: str = "gemini-1.5-flash",
         quality_filter: bool = True,
         split: bool = False,
         export_format: str = "jsonl",
@@ -136,6 +137,7 @@ class WebService:
                 files=files,
                 task_types=task_types,
                 provider=provider,
+                model=model,
                 quality_filter=quality_filter,
                 split=split,
                 export_format=export_format,
@@ -150,6 +152,7 @@ class WebService:
         files: List[Tuple[str, bytes]],
         task_types: List[str],
         provider: str,
+        model: str,
         quality_filter: bool,
         split: bool,
         export_format: str,
@@ -172,7 +175,7 @@ class WebService:
             if provider == "mock":
                 self.bot.ai_client = AIClient.from_env("mock")
             elif provider == "gemini":
-                self.bot.ai_client = AIClient.from_env("gemini")
+                self.bot.ai_client = AIClient.from_env("gemini", model=model)
 
             # 3. Parse tasks
             parsed_tasks = []

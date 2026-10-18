@@ -127,7 +127,8 @@ class AIClient:
         if normalized == "mock":
             return cls(provider=MockAIProvider(), **kwargs)
         if normalized == "gemini":
-            return cls(provider=GeminiProvider.from_env(), **kwargs)
+            model = kwargs.pop("model", settings.gemini_model)
+            return cls(provider=GeminiProvider.from_env(model=model), **kwargs)
         raise AIProviderConfigurationError(f"Unknown AI provider: {provider_name}")
 
     async def generate(self, prompt: str, *, timeout: Optional[int] = None) -> AIResponse:

@@ -76,6 +76,13 @@ document.addEventListener('DOMContentLoaded', () => {
         group.querySelectorAll('.pill-option').forEach((opt) => opt.classList.remove('active'));
         option.classList.add('active');
         input.checked = true;
+
+        if (input.name === 'provider') {
+          const modelGroup = document.getElementById('model-select-group');
+          if (modelGroup) {
+            modelGroup.style.display = input.value === 'gemini' ? 'block' : 'none';
+          }
+        }
       } else if (input.type === 'checkbox') {
         input.checked = !input.checked;
         option.classList.toggle('active', input.checked);
@@ -184,11 +191,14 @@ document.addEventListener('DOMContentLoaded', () => {
     const qualityFilter = document.getElementById('toggle-quality').checked;
     const split = document.getElementById('toggle-split').checked;
     const format = document.querySelector('#format-group input:checked').value;
+    const modelSelect = document.getElementById('gemini-model-select');
+    const model = modelSelect ? modelSelect.value : 'gemini-1.5-flash';
 
     const formData = new FormData();
     selectedFiles.forEach((file) => formData.append('files', file));
     formData.append('tasks', checkedTasks.join(','));
     formData.append('provider', provider);
+    formData.append('model', model);
     formData.append('quality_filter', qualityFilter);
     formData.append('split', split);
     formData.append('format', format);
